@@ -1,5 +1,5 @@
-from .nms_wrappers import nms_nd
-from .roi_align_wrapper import RoIAlign
+from .nms_nd import nms_nd
+from .roi_align_nd import RoIAlign
 
 from .deform_conv_2d import DeformConv2dPack, ModulatedDeformConv2dPack
 from .deform_pool_2d import DeformRoIPooling2dPack, ModulatedDeformRoIPooling2dPack

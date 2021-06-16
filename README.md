@@ -17,7 +17,7 @@ Medical Image Vision Operators
 
 ```shell
 git clone ...
-pip install -e .
+pip install -e
 ```
 
 
