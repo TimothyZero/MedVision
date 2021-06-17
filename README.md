@@ -1,22 +1,25 @@
+## Medical Image Vision Operators
+
 ### Description
 
-Medical Image Vision Operators
+Computer vision operators in medical image, such as RoIAlign, DCN and NMS for both 2/3D images.
 
+### Supported
 
-### Supports 
+Methods | Cuda | Cpu
+---|---|---
+RoI Align | 2/3D | 
+NMS | 2/3D | 
+DCNv1 | 2/3D |
+DCNv2 | 2D |
+Deformable RoI Pooling | 2D | 
+soft-NMS | | 2D
 
-##### cuda
-- nms 2/3d
-- roi align 2d/3d
-- deformable convolution 2d/3d
-
-##### cpu
-- softnms 2d
 
 ### Installation
 
 ```shell
-git clone ...
+git clone https://github.com/TimothyZero/MedVision
 pip install .
 ```
 
