@@ -257,8 +257,11 @@ class DeformConv2dPack(DeformConv2d):
 
     def forward(self, x):
         offset = self.conv_offset(x)
+        if 'Half' in offset.type():
+            return deform_conv(x.half(), offset, self.weight.half(), self.stride, self.padding,
+                               self.dilation, self.groups, self.deformable_groups)
         return deform_conv(x, offset, self.weight, self.stride, self.padding,
-                           self.dilation, self.groups, self.deformable_groups)
+                               self.dilation, self.groups, self.deformable_groups)
 
 
 class ModulatedDeformConv2d(nn.Module):
@@ -332,6 +335,10 @@ class ModulatedDeformConv2dPack(ModulatedDeformConv2d):
         o1, o2, mask = torch.chunk(out, 3, dim=1)
         offset = torch.cat((o1, o2), dim=1)
         mask = torch.sigmoid(mask)
+        if 'Half' in offset.type():
+            return modulated_deform_conv(x.half(), offset, mask, self.weight.half(), self.bias.half(),
+                                         self.stride, self.padding, self.dilation,
+                                         self.groups, self.deformable_groups)
         return modulated_deform_conv(x, offset, mask, self.weight, self.bias,
                                      self.stride, self.padding, self.dilation,
                                      self.groups, self.deformable_groups)

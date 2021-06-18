@@ -135,9 +135,21 @@ class DeformConv3dPack(DeformConv3d):
         self.conv_offset.weight.data.zero_()
         self.conv_offset.bias.data.zero_()
 
-    def forward(self, input):
-        offset = self.conv_offset(input)
-        return DeformConv3dFunction.apply(input, offset,
+    def forward(self, x: torch.Tensor):
+        offset = self.conv_offset(x)
+        # ugly method to support FP16
+        if 'Half' in offset.type():
+            return DeformConv3dFunction.apply(x.half(), offset,
+                                              self.weight.half(),
+                                              self.bias.half(),
+                                              self.stride,
+                                              self.padding,
+                                              self.dilation,
+                                              self.groups,
+                                              self.deformable_groups,
+                                              self.im2col_step)
+
+        return DeformConv3dFunction.apply(x, offset,
                                           self.weight,
                                           self.bias,
                                           self.stride,

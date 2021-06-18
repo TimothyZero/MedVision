@@ -6,13 +6,13 @@ Computer vision operators in medical image, such as RoIAlign, DCN and NMS for bo
 
 ### Supported
 
-Methods | Cuda | Cpu
----|---|---
-RoI Align | 2/3D | 
-NMS | 2/3D | 
-DCNv1 | 2/3D |
-DCNv2 | 2D |
-Deformable RoI Pooling | 2D | 
+Methods | Cuda | Cpu | FP16
+---|---|---|---
+RoI Align | 2/3D | | yes
+NMS | 2/3D | |yes
+DCNv1 | 2/3D | |    yes 
+DCNv2 | 2D   |   |    yes
+Deformable RoI Pooling | 2D |   |  yes
 soft-NMS | | 2D
 
 
