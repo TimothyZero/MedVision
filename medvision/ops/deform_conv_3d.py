@@ -25,15 +25,19 @@ class DeformConv3dFunction(Function):
         ctx.group = group
         ctx.deformable_groups = deformable_groups
         ctx.im2col_step = im2col_step
-        output = _C.deform_conv_forward(input, weight, bias,
-                                        offset,
-                                        ctx.kernel_size[0], ctx.kernel_size[1], ctx.kernel_size[2],
-                                        ctx.stride[0], ctx.stride[1], ctx.stride[2],
-                                        ctx.padding[0], ctx.padding[1], ctx.padding[2],
-                                        ctx.dilation[0], ctx.dilation[1], ctx.dilation[2],
-                                        ctx.group,
-                                        ctx.deformable_groups,
-                                        ctx.im2col_step)
+        if 'Half' in offset.type():
+            input = input.half()
+            bias = bias.half()
+            weight = weight.half()
+        output = _C.deform_conv_3d_forward(input, weight, bias,
+                                           offset,
+                                           ctx.kernel_size[0], ctx.kernel_size[1], ctx.kernel_size[2],
+                                           ctx.stride[0], ctx.stride[1], ctx.stride[2],
+                                           ctx.padding[0], ctx.padding[1], ctx.padding[2],
+                                           ctx.dilation[0], ctx.dilation[1], ctx.dilation[2],
+                                           ctx.group,
+                                           ctx.deformable_groups,
+                                           ctx.im2col_step)
         ctx.save_for_backward(input, offset, weight, bias)
         return output
 
@@ -42,17 +46,17 @@ class DeformConv3dFunction(Function):
     def backward(ctx, grad_output):
         input, offset, weight, bias = ctx.saved_tensors
         grad_input, grad_offset, grad_weight, grad_bias = \
-            _C.deform_conv_backward(input, weight,
-                                    bias,
-                                    offset,
-                                    grad_output,
-                                    ctx.kernel_size[0], ctx.kernel_size[1], ctx.kernel_size[2],
-                                    ctx.stride[0], ctx.stride[1], ctx.stride[2],
-                                    ctx.padding[0], ctx.padding[1], ctx.padding[2],
-                                    ctx.dilation[0], ctx.dilation[1], ctx.dilation[2],
-                                    ctx.group,
-                                    ctx.deformable_groups,
-                                    ctx.im2col_step)
+            _C.deform_conv_3d_backward(input, weight,
+                                       bias,
+                                       offset,
+                                       grad_output,
+                                       ctx.kernel_size[0], ctx.kernel_size[1], ctx.kernel_size[2],
+                                       ctx.stride[0], ctx.stride[1], ctx.stride[2],
+                                       ctx.padding[0], ctx.padding[1], ctx.padding[2],
+                                       ctx.dilation[0], ctx.dilation[1], ctx.dilation[2],
+                                       ctx.group,
+                                       ctx.deformable_groups,
+                                       ctx.im2col_step)
 
         return grad_input, grad_offset, grad_weight, grad_bias, \
                None, None, None, None, None, None
@@ -115,11 +119,11 @@ _DeformConv = DeformConv3dFunction.apply
 class DeformConv3dPack(DeformConv3d):
 
     def __init__(self, in_channels, out_channels,
-                 kernel_size, stride, padding,
+                 kernel_size, stride=1, padding=0,
                  dilation=1, groups=1, deformable_groups=1, im2col_step=64, bias=True, lr_mult=0.1):
         super(DeformConv3dPack, self).__init__(in_channels, out_channels,
-                                             kernel_size, stride, padding, dilation, groups, deformable_groups,
-                                             im2col_step, bias)
+                                               kernel_size, stride, padding, dilation, groups, deformable_groups,
+                                               im2col_step, bias)
 
         out_channels = self.deformable_groups * 3 * self.kernel_size[0] * self.kernel_size[1] * self.kernel_size[2]
         self.conv_offset = nn.Conv3d(self.in_channels,
@@ -135,21 +139,9 @@ class DeformConv3dPack(DeformConv3d):
         self.conv_offset.weight.data.zero_()
         self.conv_offset.bias.data.zero_()
 
-    def forward(self, x: torch.Tensor):
-        offset = self.conv_offset(x)
-        # ugly method to support FP16
-        if 'Half' in offset.type():
-            return DeformConv3dFunction.apply(x.half(), offset,
-                                              self.weight.half(),
-                                              self.bias.half(),
-                                              self.stride,
-                                              self.padding,
-                                              self.dilation,
-                                              self.groups,
-                                              self.deformable_groups,
-                                              self.im2col_step)
-
-        return DeformConv3dFunction.apply(x, offset,
+    def forward(self, input):
+        offset = self.conv_offset(input)
+        return DeformConv3dFunction.apply(input, offset,
                                           self.weight,
                                           self.bias,
                                           self.stride,
@@ -158,4 +150,3 @@ class DeformConv3dPack(DeformConv3d):
                                           self.groups,
                                           self.deformable_groups,
                                           self.im2col_step)
-

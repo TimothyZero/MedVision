@@ -13,15 +13,37 @@
 #  limitations under the License.
 import time
 import torch
+import numpy as np
+from skimage import io
 
 from torchvision.ops import RoIAlign as RoIAlignTorchvision
 
 from medvision.ops import RoIAlign as RoIAlignCuda
 from medvision.ops.torch import RoIAlign as RoIAlignTorch
 
-from medvision.io import ImageIO
 
-from medvision.visulaize import volume2tiled
+def volume2tiled(image: np.ndarray, file_path: str, sampling_ratio=10, col=None):
+    """
+
+    Args:
+        image: ndim = 3, zyx
+        file_path:
+        sampling_ratio:
+        col:
+
+    Returns:
+
+    """
+    image = (image - np.min(image)) / (np.max(image) - np.min(image)) * 255
+    image = image[::sampling_ratio, ...]
+    z = image.shape[0]
+    if not col:
+        col = int(np.ceil(np.sqrt(z)))
+    row = int(np.ceil(z / col))
+    new_image = np.zeros((row * col, image.shape[1], image.shape[2]))
+    new_image[:z] = image
+    new_image = np.concatenate([np.concatenate(i, axis=1) for i in np.split(new_image, row, axis=0)], axis=0)
+    io.imsave(file_path, new_image.astype(np.uint8), check_contrast=False)
 
 
 def call_roi_align(name, obj, fs, rois, device='cpu'):
@@ -34,15 +56,14 @@ def call_roi_align(name, obj, fs, rois, device='cpu'):
     # print(a.cpu().numpy())
     print(time.time() - tic)
 
-    ImageIO.saveArray(name + '.jpg', a[0].cpu().numpy())
+    io.imsave(name + '.jpg', (255.0 * a[0, 0].cpu().numpy()).astype(np.uint8))
 
 
 def test2d():
-    image, _, _, _ = ImageIO.loadArray("../samples/det_image.jpg")
-    image = image[0, ...]
+    image = io.imread("../samples/det_image.jpg", as_gray=True)
     print(image.shape)
 
-    f = torch.from_numpy(image).int()
+    f = torch.from_numpy(image).float()
     f = f.unsqueeze(0).unsqueeze(0)
     fs1 = torch.cat([1 * f], dim=1)
     fs2 = torch.cat([3 * f], dim=1)

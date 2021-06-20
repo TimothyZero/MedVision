@@ -90,4 +90,4 @@ if __name__ == "__main__":
         cmdclass={'build_ext': cpp_extension.BuildExtension},
         zip_safe=True,
     )
-    # clean()
+    clean()

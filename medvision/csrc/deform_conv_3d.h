@@ -1,10 +1,8 @@
 #pragma once
-
-#pragma once
 #include <torch/extension.h>
 
 at::Tensor
-deform_conv_cuda_forward(const at::Tensor &input,
+deform_conv_3d_cuda_forward(const at::Tensor &input,
                     const at::Tensor &weight,
                     const at::Tensor &bias,
                     const at::Tensor &offset,
@@ -25,7 +23,7 @@ deform_conv_cuda_forward(const at::Tensor &input,
                     const int im2col_step);
 
 std::vector<at::Tensor>
-deform_conv_cuda_backward(const at::Tensor &input,
+deform_conv_3d_cuda_backward(const at::Tensor &input,
                      const at::Tensor &weight,
                      const at::Tensor &bias,
                      const at::Tensor &offset,
@@ -48,7 +46,7 @@ deform_conv_cuda_backward(const at::Tensor &input,
 
 
 at::Tensor
-deform_conv_forward(const at::Tensor &input,
+deform_conv_3d_forward(const at::Tensor &input,
                const at::Tensor &weight,
                const at::Tensor &bias,
                const at::Tensor &offset,
@@ -71,13 +69,13 @@ deform_conv_forward(const at::Tensor &input,
     if (input.type().is_cuda())
     {
 #ifdef WITH_CUDA
-        return deform_conv_cuda_forward(input, weight, bias, offset,
+        return deform_conv_3d_cuda_forward(input, weight, bias, offset,
                                    kernel_d, kernel_h, kernel_w,
                                    stride_d, stride_h, stride_w,
                                    pad_d, pad_h, pad_w,
                                    dilation_d, dilation_h, dilation_w,
                                    group,
-                                   deformable_group, 
+                                   deformable_group,
                                    im2col_step);
 #else
         AT_ERROR("Not compiled with GPU support");
@@ -87,22 +85,22 @@ deform_conv_forward(const at::Tensor &input,
 }
 
 std::vector<at::Tensor>
-deform_conv_backward(const at::Tensor &input,
+deform_conv_3d_backward(const at::Tensor &input,
                 const at::Tensor &weight,
                 const at::Tensor &bias,
                 const at::Tensor &offset,
                 const at::Tensor &grad_output,
-                const int kernel_d, 
-                const int kernel_h, 
+                const int kernel_d,
+                const int kernel_h,
                 const int kernel_w,
                 const int stride_d,
-                const int stride_h, 
+                const int stride_h,
                 const int stride_w,
-                const int pad_d, 
-                const int pad_h, 
+                const int pad_d,
+                const int pad_h,
                 const int pad_w,
                 const int dilation_d,
-                const int dilation_h, 
+                const int dilation_h,
                 const int dilation_w,
                 const int group,
                 const int deformable_group,
@@ -111,7 +109,7 @@ deform_conv_backward(const at::Tensor &input,
     if (input.type().is_cuda())
     {
 #ifdef WITH_CUDA
-        return deform_conv_cuda_backward(input,
+        return deform_conv_3d_cuda_backward(input,
                                     weight,
                                     bias,
                                     offset,
@@ -129,4 +127,3 @@ deform_conv_backward(const at::Tensor &input,
     }
     AT_ERROR("Not implemented on the CPU");
 }
-

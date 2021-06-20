@@ -1,5 +1,5 @@
-numpy~=1.18.5
-torch~=1.7.0
-torchvision~=0.8.0
-setuptools~=49.6.0
-cython~=0.29.21
+numpy
+torch
+torchvision
+setuptools
+scikit-image
