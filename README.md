@@ -10,6 +10,7 @@ Methods | Cuda | Cpu | FP16
 ---|---|---|---
 RoI Align | 2/3D | | yes
 NMS | 2/3D | |yes
+BBox overlaps | 2/3D | |yes
 DCN v1 | 2/3D | |  yes 
 DCN v2 | 2/3D | |  yes
 Deformable RoI Pooling | 2D | |  yes
@@ -20,7 +21,7 @@ soft-NMS | | 2D
 
 ```shell
 git clone https://github.com/TimothyZero/MedVision
-pip install .
+pip install -e .  # -e : editable
 ```
 
 
