@@ -13,9 +13,11 @@
 
 
 const int CUDA_NUM_THREADS = 512;
-const int kMaxGridNum = 65535;
+const int THREADS_PER_BLOCK = CUDA_NUM_THREADS;
 
 inline int GET_BLOCKS(const int N)
 {
-  return std::min(kMaxGridNum, (N + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS);
+    int optimal_block_num = (N + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS;
+    int max_block_num = 4096;
+    return min(optimal_block_num, max_block_num);
 }

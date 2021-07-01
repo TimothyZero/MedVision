@@ -1,4 +1,5 @@
 from .nms_nd import nms_nd
+from .bbox_overlaps_nd import bbox_overlaps_nd
 from .roi_align_nd import RoIAlign
 
 from .deform_pool_2d import DeformRoIPooling2dPack, ModulatedDeformRoIPooling2dPack
@@ -11,6 +12,7 @@ from .modulated_deform_conv_3d import ModulatedDeformConv3dPack
 
 __all__ = [
     'nms_nd',
+    'bbox_overlaps_nd',
     'RoIAlign',
     'DeformRoIPooling2dPack',
     'ModulatedDeformRoIPooling2dPack',
