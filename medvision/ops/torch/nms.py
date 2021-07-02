@@ -1,7 +1,7 @@
 import torch
 
 
-def nmsNd_pytorch(dets: torch.Tensor, threshold: float):
+def nms_nd_pytorch(dets: torch.Tensor, threshold: float):
     """
     :param dets:  [[x1,y1,x2,y2,score],  |  [[x1,y1,z1,x2,y2,z2,score],
                    [x1,y1,x2,y2,score]]  |   [x1,y1,z1,x2,y2,z2,score]]

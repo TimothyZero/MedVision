@@ -1,12 +1,12 @@
 import torch
 
 
-def iouNd_pytorch(anchors: torch.Tensor,
-                  targets: torch.Tensor,
-                  dim=None,
-                  mode='iou',
-                  is_aligned=False, 
-                  eps=1e-6) -> torch.Tensor:
+def bbox_overlaps_nd_pytorch(anchors: torch.Tensor,
+                             targets: torch.Tensor,
+                             dim=None,
+                             mode='iou',
+                             is_aligned=False,
+                             eps=1e-6) -> torch.Tensor:
     """
     :param anchors:  [N, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
     :param targets:  [M, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
@@ -83,9 +83,9 @@ def iouNd_pytorch(anchors: torch.Tensor,
         return diou
     
 
-def distNd_pytorch(anchors: torch.Tensor,
-                   targets: torch.Tensor,
-                   dim=None) -> torch.Tensor:
+def dist_nd_pytorch(anchors: torch.Tensor,
+                    targets: torch.Tensor,
+                    dim=None) -> torch.Tensor:
     """
     :param anchors:  [N, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
     :param targets:  [M, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
@@ -114,10 +114,10 @@ def distNd_pytorch(anchors: torch.Tensor,
     return distance
 
 
-def deltaNd_pytorch(anchors: torch.Tensor,
-                    targets: torch.Tensor,
-                    means: torch.Tensor = None,
-                    stds: torch.Tensor = None):
+def encode_nd_pytorch(anchors: torch.Tensor,
+                      targets: torch.Tensor,
+                      means: torch.Tensor = None,
+                      stds: torch.Tensor = None):
     """
     :param  anchors: [N, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
     :param  targets: [N, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
@@ -163,10 +163,10 @@ def deltaNd_pytorch(anchors: torch.Tensor,
     return deltas
 
 
-def applyDeltaNd_pytorch(anchors: torch.Tensor,
-                         deltas: torch.Tensor,
-                         means: torch.Tensor = None,
-                         stds: torch.Tensor = None):
+def decode_nd_pytorch(anchors: torch.Tensor,
+                      deltas: torch.Tensor,
+                      means: torch.Tensor = None,
+                      stds: torch.Tensor = None):
     """
     make sure coords is last dim
     应用回归目标到边框,用rpn网络预测的delta refine anchor
@@ -205,34 +205,3 @@ def applyDeltaNd_pytorch(anchors: torch.Tensor,
                                  anchor_center + 0.5 * anchor_shape], dim=-1)
 
     return anchors_refined
-
-
-def bbox2roi(bbox_list):
-    """Convert a list of bboxes to roi format.
-
-    Args:
-        bbox_list (list[Tensor]): a list of bboxes corresponding to a batch
-            of images.
-
-    Returns:
-        Tensor: shape (n, 1 + 2 dim), [batch_ind, x1, y1, z1, x2, y2, z2]
-    """
-    rois_list = []
-    for img_id, bboxes in enumerate(bbox_list):
-        if bboxes.size(0) > 0:
-            img_inds = bboxes.new_full((bboxes.size(0), 1), img_id)
-            rois = torch.cat([img_inds, bboxes], dim=-1)
-        else:
-            rois = bboxes.new_zeros((0, 1 + bboxes.shape[1]))
-        rois_list.append(rois)
-    rois = torch.cat(rois_list, 0)
-    return rois
-
-
-def enlarge(rois: torch.Tensor, scale_factor: float):
-    dim = rois.shape[-1] // 2
-    shape = rois[:, dim:] - rois[:, :dim]
-    enlarged = rois.clone()
-    enlarged[:, dim:] = enlarged[:, dim:] + (scale_factor - 1) * shape / 2
-    enlarged[:, :dim] = enlarged[:, :dim] - (scale_factor - 1) * shape / 2
-    return [enlarged]

@@ -16,6 +16,7 @@ import torch
 import time
 
 from medvision.ops import nms_nd
+from medvision.ops.torch import nms_nd_pytorch
 
 
 def test2D():
@@ -29,12 +30,22 @@ def test2D():
                         [36., 43., 52., 60., 0.30]], dtype=np.float32)
     dets_2d = torch.from_numpy(dets_2d).cuda()
 
+    """ Torch """
+    start = time.time()
+    keep, suppressed = nms_nd_pytorch(dets_2d, iou_thr_per_dim ** 2)
+    print('Torch')
+    print(time.time() - start)
+    print(keep)
+    # print(suppressed)
+    print(suppressed[keep])
+
     """ CUDA """
     start = time.time()
     keep, suppressed = nms_nd(dets_2d, iou_thr_per_dim ** 2)
+    print('CUDA')
     print(time.time() - start)
     print(keep)
-    print(suppressed)
+    # print(suppressed)
     print(suppressed[keep])
 
 
@@ -49,12 +60,22 @@ def test3D():
                         [36., 43., 43., 52., 60., 60., 0.30]], dtype=np.float32)
     dets_3d = torch.from_numpy(dets_3d).cuda()
 
+    """ Torch """
+    start = time.time()
+    keep, suppressed = nms_nd_pytorch(dets_3d, iou_thr_per_dim ** 3)
+    print('Torch')
+    print(time.time() - start)
+    print(keep)
+    # print(suppressed)
+    print(suppressed[keep])
+
     """ CUDA """
     start = time.time()
     keep, suppressed = nms_nd(dets_3d, iou_thr_per_dim ** 3)
+    print('CUDA')
     print(time.time() - start)
     print(keep)
-    print(suppressed)
+    # print(suppressed)
     print(suppressed[keep])
 
 

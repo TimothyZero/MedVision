@@ -6,15 +6,18 @@ Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and N
 
 ### Supported
 
-Methods | Cuda | Cpu | FP16
----|---|---|---
-RoI Align | 2/3D | | yes
-NMS | 2/3D | |yes
-BBox overlaps | 2/3D | |yes
-DCN v1 | 2/3D | |  yes 
-DCN v2 | 2/3D | |  yes
-Deformable RoI Pooling | 2D | |  yes
-soft-NMS | | 2D
+Methods | Torch | Cuda | Cpu | FP16
+---|---|---|---|---
+RoI Align              | 2/3D | 2/3D |      |  yes
+BBox overlaps          | 2/3D | 2/3D |      |  yes
+NMS                    | 2/3D | 2/3D |      |  yes
+soft-NMS               | 2/3D |      | 2D   |  yes
+DCN v1                 |      | 2/3D |      |  yes 
+DCN v2                 |      | 2/3D |      |  yes
+Deformable RoI Pooling |      | 2D   |      |  yes
+
+
+***Torch** : implemented with torch functions.*
 
 
 ### Installation

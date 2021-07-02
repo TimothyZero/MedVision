@@ -2,6 +2,7 @@
 import torch
 
 from medvision.ops import bbox_overlaps_nd
+from medvision.ops.torch import bbox_overlaps_nd_pytorch
 
 bboxes1 = torch.FloatTensor([
     [0, 0, 10, 10],
@@ -14,6 +15,7 @@ bboxes2 = torch.FloatTensor([
     [10, 10, 20, 20],
 ])
 print(bbox_overlaps_nd(bboxes1.cuda(), bboxes2.cuda()))
+print(bbox_overlaps_nd_pytorch(bboxes1.cuda(), bboxes2.cuda()))
 
 bboxes1 = torch.FloatTensor([
     [10., 10., 10., 25., 35., 35.],
@@ -34,3 +36,4 @@ bboxes2 = torch.FloatTensor([
     [36., 43., 43., 52., 60., 60.],
 ])
 print(bbox_overlaps_nd(bboxes1.cuda(), bboxes2.cuda()))
+print(bbox_overlaps_nd_pytorch(bboxes1.cuda(), bboxes2.cuda()))

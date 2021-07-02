@@ -3,3 +3,4 @@ torch
 torchvision
 setuptools
 scikit-image
+SimpleITK

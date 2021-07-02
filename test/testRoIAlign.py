@@ -97,8 +97,16 @@ def test3d():
     r = RoIAlignCuda((15, 256, 256), 1.0, 1)
     a = r(fs.float().cuda(), rois.cuda())  # [num_boxes,  C, D, H, W]
 
-    volume2tiled(a[0, 0].cpu().numpy(), 'test.roi.jpg', 1)
     volume2tiled(image[0:15, 0:256, 0:256], 'test.crop.jpg', 1)
+
+    volume2tiled(a[0, 0].cpu().numpy(), 'test.roi.cuda.jpg', 1)
+
+    print(a.shape)
+
+    r = RoIAlignTorch((15, 256, 256), 1.0, 1)
+    a = r(fs.float().cuda(), rois.cuda())  # [num_boxes,  C, D, H, W]
+
+    volume2tiled(a[0, 0].cpu().numpy(), 'test.roi.torch.jpg', 1)
 
     print(a.shape)
     # print(a)

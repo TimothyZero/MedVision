@@ -1,7 +1,7 @@
 import torch
 
 
-def softnmsNd_pytorch(dets: torch.Tensor, threshold: float, method=1, sigma=0.5):
+def softnms_nd_pytorch(dets: torch.Tensor, threshold: float, method=1, sigma=0.5):
     """
     :param dets:  [[x1,y1,x2,y2,score],  |  [[x1,y1,z1,x2,y2,z2,score],
                    [x1,y1,x2,y2,score]]  |   [x1,y1,z1,x2,y2,z2,score]]
