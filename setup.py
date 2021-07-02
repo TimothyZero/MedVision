@@ -79,15 +79,17 @@ def clean():
 if __name__ == "__main__":
     print_compile_env()
 
-    setup(
-        name='medvision',
-        version='0.0.1',
-        description='Medical Image Vision',
-        keywords='Medical Image, Vision',
-        license='Apache License 2.0',
-        packages=setuptools.find_packages('.'),
-        ext_modules=get_extensions(),
-        cmdclass={'build_ext': cpp_extension.BuildExtension},
-        zip_safe=True,
-    )
-    clean()
+    x = input('Input y/yes to install (other to cancel):')
+    if x.upper() in ['Y', 'YES']:
+        setup(
+            name='medvision',
+            version='0.0.1',
+            description='Medical Image Vision',
+            keywords='Medical Image, Vision',
+            license='Apache License 2.0',
+            packages=setuptools.find_packages('.'),
+            ext_modules=get_extensions(),
+            cmdclass={'build_ext': cpp_extension.BuildExtension},
+            zip_safe=True,
+        )
+        clean()
