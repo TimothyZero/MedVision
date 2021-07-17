@@ -71,11 +71,6 @@ def get_extensions():
     return ext_modules
 
 
-def clean():
-    """Custom clean command to tidy up the project root."""
-    os.system('rm -vrf ./build ./dist ./*.pyc ./*.tgz ./*.egg-info')
-
-
 if __name__ == "__main__":
     print_compile_env()
 
@@ -83,7 +78,7 @@ if __name__ == "__main__":
         long_description = fh.read()
 
     setup(
-        name='MedVision',
+        name='medvision',
         version='0.0.1',
         author="timothy, qiaoyf",
         author_email="thyzyfx@qq.com, qyyyyyf@gmail.com",
@@ -103,4 +98,3 @@ if __name__ == "__main__":
         ],
         zip_safe=True,
     )
-    # clean()
