@@ -79,15 +79,28 @@ def clean():
 if __name__ == "__main__":
     print_compile_env()
 
+    with open("README.md", "r", encoding='utf-8') as fh:
+        long_description = fh.read()
+
     setup(
-        name='medvision',
+        name='MedVision',
         version='0.0.1',
+        author="timothy, qiaoyf",
+        author_email="thyzyfx@qq.com, qyyyyyf@gmail.com",
         description='Medical Image Vision',
         keywords='Medical Image, Vision',
+        long_description=long_description,
+        long_description_content_type="text/markdown",
+        url='https://github.com/TimothyZero/MedVision',
         license='Apache License 2.0',
         packages=setuptools.find_packages('.'),
         ext_modules=get_extensions(),
         cmdclass={'build_ext': cpp_extension.BuildExtension},
+        classifiers=[
+            "Programming Language :: Python :: 3",
+            "License :: OSI Approved :: Apache Software License",
+            "Operating System :: OS Independent",
+        ],
         zip_safe=True,
     )
-    clean()
+    # clean()
