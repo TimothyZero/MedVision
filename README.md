@@ -4,7 +4,7 @@
 
 Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and NMS for both 2/3D images.
 
-### Supported
+### Supported CUDA Operators
 
 Methods                | Torch | Cuda |  Cpu | FP16
 ---|---|---|---|---
@@ -39,7 +39,7 @@ RandomNoise         | 2/3D  | yes
 Display             | 2/3D  | yes
 Viewer              | 2/3D  | yes
 
-**All of these support forward and backward. **
+**All of these should support forward and backward (need test).**
 
 
 ### TODO
@@ -60,9 +60,9 @@ python setup.py develop
 ### Tested Environment
 
 ```
-gcc 5.4, 7.5
-torch 1.6.0, 1.7.1, 1.8.1
-cuda 9.0, 10.1, 10.2
+gcc    5.4,   7.5
+torch  1.6.0, 1.7.1, 1.8.1
+cuda   9.0,   10.1,  10.2
 ```
 
 ### Some issues
