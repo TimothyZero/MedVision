@@ -1,0 +1,11 @@
+python aug_test_Affine.py
+python aug_test_Blur.py
+python aug_test_CropAffine.py
+python aug_test_Crop.py
+python aug_test_Elastic.py
+python aug_test_Flip.py
+python aug_test_Noise.py
+python aug_test_Norm.py
+python aug_test_Pad.py
+python aug_test_Patches.py
+python aug_test_Resize.py

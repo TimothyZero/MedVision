@@ -16,18 +16,9 @@
 #include <math.h>
 #include <algorithm>
 
+#include "cuda_helpers.h"
+
 using namespace at;
-
-#define CUDA_KERNEL_LOOP(i, n)                        \
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
-       i < (n);                                       \
-       i += blockDim.x * gridDim.x)
-
-const int CUDA_NUM_THREADS = 1024;
-inline int GET_BLOCKS(const int N)
-{
-  return (N + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS;
-}
 
 template <typename scalar_t>
 __device__ scalar_t bilinear_interp(
@@ -71,7 +62,7 @@ __global__ void DeformablePSROIPoolForwardKernel(
     scalar_t *top_data,
     scalar_t *top_count)
 {
-  CUDA_KERNEL_LOOP(index, count)
+  CUDA_1D_KERNEL_LOOP(index, count)
   {
     // The output is in order (n, ctop, ph, pw)
     int pw = index % pooled_width;
@@ -164,7 +155,7 @@ __global__ void DeformablePSROIPoolBackwardAccKernel(
     const int num_classes,
     const int channels_each_class)
 {
-  CUDA_KERNEL_LOOP(index, count)
+  CUDA_1D_KERNEL_LOOP(index, count)
   {
     // The output is in order (n, ctop, ph, pw)
     int pw = index % pooled_width;

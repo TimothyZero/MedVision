@@ -33,6 +33,7 @@ def get_extensions():
     main_file = glob.glob(os.path.join(extensions_dir, '*.cpp'))
     source_cpu = glob.glob(os.path.join(extensions_dir, 'cpu', '*.cpp'))
     source_cuda = glob.glob(os.path.join(extensions_dir, 'cuda', '*.cu'))
+    source_cuda += glob.glob(os.path.join(extensions_dir, 'cuda_aug', '*.cu'))
 
     sources = main_file + source_cpu
     extension = CppExtension
@@ -79,7 +80,7 @@ if __name__ == "__main__":
 
     setup(
         name='medvision',
-        version='0.0.1',
+        version='0.0.2',
         author="timothy, qiaoyf",
         author_email="thyzyfx@qq.com, qyyyyyf@gmail.com",
         description='Medical Image Vision',

@@ -39,7 +39,7 @@ class ModulatedDeformConv2dFunction(Function):
         output = offset.new_empty(
             ModulatedDeformConv2dFunction._infer_shape(ctx, input, weight))
         ctx._bufs = [offset.new_empty(0), offset.new_empty(0)]
-        if 'Half' in offset.type():
+        if offset.dtype == torch.float16:
             input = input.half()
             bias = bias.half()
             weight = weight.half()
@@ -106,9 +106,9 @@ class ModulatedDeformConv2d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = _pair(kernel_size)
-        self.stride = stride
-        self.padding = padding
-        self.dilation = dilation
+        self.stride = _pair(stride)
+        self.padding = _pair(padding)
+        self.dilation = _pair(dilation)
         self.groups = groups
         self.deformable_groups = deformable_groups
         self.with_bias = bias
@@ -135,6 +135,18 @@ class ModulatedDeformConv2d(nn.Module):
         return modulated_deform_conv(x, offset, mask, self.weight, self.bias,
                                      self.stride, self.padding, self.dilation,
                                      self.groups, self.deformable_groups)
+
+    def __repr__(self):
+        s = self.__class__.__name__
+        s += f'(in_channels={self.in_channels}, '
+        s += f'out_channels={self.out_channels}, '
+        s += f'kernel_size={self.kernel_size}, '
+        s += f'stride={self.stride}, '
+        s += f'padding={self.padding}, '
+        s += f'dilation={self.dilation}, '
+        s += f'groups={self.groups}, '
+        s += f'deform_groups={self.deformable_groups})'
+        return s
 
 
 class ModulatedDeformConv2dPack(ModulatedDeformConv2d):

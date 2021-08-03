@@ -11,6 +11,9 @@
   for (int i = (blockIdx.x * blockDim.x) + threadIdx.x; i < (n); \
        i += (blockDim.x * gridDim.x))
 
+using at::Half;
+using at::Tensor;
+using phalf = at::Half;
 
 const int CUDA_NUM_THREADS = 512;
 const int THREADS_PER_BLOCK = CUDA_NUM_THREADS;

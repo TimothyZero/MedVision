@@ -12,8 +12,17 @@ from medvision import _C
 
 class DeformConv2dFunction(Function):
     @staticmethod
-    def forward(ctx, input, offset, weight, bias,
-                stride, padding, dilation, group, deformable_groups, im2col_step):
+    def forward(ctx,
+                input,
+                offset,
+                weight,
+                bias,
+                stride,
+                padding,
+                dilation,
+                group,
+                deformable_groups,
+                im2col_step):
         ctx.stride = _pair(stride)
         ctx.padding = _pair(padding)
         ctx.dilation = _pair(dilation)
@@ -21,7 +30,7 @@ class DeformConv2dFunction(Function):
         ctx.group = group
         ctx.deformable_groups = deformable_groups
         ctx.im2col_step = im2col_step
-        if 'Half' in offset.type():
+        if offset.dtype == torch.float16:
             input = input.half()
             bias = bias.half()
             weight = weight.half()
@@ -54,14 +63,26 @@ class DeformConv2dFunction(Function):
                                        ctx.deformable_groups,
                                        ctx.im2col_step)
 
-        return grad_input, grad_offset, grad_weight, grad_bias, \
-               None, None, None, None, None, None
+        return (grad_input, grad_offset, grad_weight, grad_bias,
+                None, None, None, None, None, None)
+
+
+deform_conv = DeformConv2dFunction.apply
 
 
 class DeformConv2d(nn.Module):
 
-    def __init__(self, in_channels, out_channels,
-                 kernel_size, stride, padding, dilation=1, groups=1, deformable_groups=1, im2col_step=64, bias=True):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride,
+                 padding,
+                 dilation=1,
+                 groups=1,
+                 deformable_groups=1,
+                 im2col_step=64,
+                 bias=True):
         super(DeformConv2d, self).__init__()
 
         if in_channels % groups != 0:
@@ -98,24 +119,43 @@ class DeformConv2d(nn.Module):
     def forward(self, input, offset):
         assert 3 * self.deformable_groups * self.kernel_size[0] * self.kernel_size[1] * self.kernel_size[2] == \
                offset.shape[1]
-        return DeformConv2dFunction.apply(input, offset,
-                                          self.weight,
-                                          self.bias,
-                                          self.stride,
-                                          self.padding,
-                                          self.dilation,
-                                          self.groups,
-                                          self.deformable_groups,
-                                          self.im2col_step)
+        return deform_conv(input, offset,
+                           self.weight,
+                           self.bias,
+                           self.stride,
+                           self.padding,
+                           self.dilation,
+                           self.groups,
+                           self.deformable_groups,
+                           self.im2col_step)
 
-deform_conv = DeformConv2dFunction.apply
+    def __repr__(self):
+        s = self.__class__.__name__
+        s += f'(in_channels={self.in_channels}, '
+        s += f'out_channels={self.out_channels}, '
+        s += f'kernel_size={self.kernel_size}, '
+        s += f'stride={self.stride}, '
+        s += f'padding={self.padding}, '
+        s += f'dilation={self.dilation}, '
+        s += f'groups={self.groups}, '
+        s += f'deform_groups={self.deformable_groups})'
+        return s
 
 
 class DeformConv2dPack(DeformConv2d):
 
-    def __init__(self, in_channels, out_channels,
-                 kernel_size, stride=1, padding=0,
-                 dilation=1, groups=1, deformable_groups=1, im2col_step=64, bias=True, lr_mult=0.1):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 deformable_groups=1,
+                 im2col_step=64,
+                 bias=True,
+                 lr_mult=0.1):
         super(DeformConv2dPack, self).__init__(in_channels, out_channels,
                                                kernel_size, stride, padding, dilation, groups, deformable_groups,
                                                im2col_step, bias)
@@ -136,12 +176,12 @@ class DeformConv2dPack(DeformConv2d):
 
     def forward(self, input):
         offset = self.conv_offset(input)
-        return DeformConv2dFunction.apply(input, offset,
-                                          self.weight,
-                                          self.bias,
-                                          self.stride,
-                                          self.padding,
-                                          self.dilation,
-                                          self.groups,
-                                          self.deformable_groups,
-                                          self.im2col_step)
+        return deform_conv(input, offset,
+                           self.weight,
+                           self.bias,
+                           self.stride,
+                           self.padding,
+                           self.dilation,
+                           self.groups,
+                           self.deformable_groups,
+                           self.im2col_step)
