@@ -25,7 +25,7 @@ def get_gpu():
         return f'N/A({str(os.getpid())}-Err:{e})'
 
 
-class AugBase(object):
+class BatchCudaAugBase(object):
     def __init__(self):
         self.p = 0.
         self.latitude = 1.0
@@ -75,13 +75,11 @@ class AugBase(object):
         """ initial some params """
         self.dim = self.dim if self.dim else result['img_dim']
         self.img_type = result['img'].dtype
-        if 'img' in result.keys():
-            self.array_shape = tuple(result['img'].shape)
-        else:
-            self.array_shape = tuple(result['img_shape'])
-        self.image_axes = tuple(range(1, self.dim + 1))
-        self.channels = self.array_shape[0]
-        self.image_shape = self.array_shape[1:]
+        self.array_shape = tuple(result['img'].shape)
+        self.image_axes = tuple(range(2, self.dim + 2))  # b, c, d, h, w
+        self.batch = self.array_shape[0]
+        self.channels = self.array_shape[1]
+        self.image_shape = self.array_shape[2:]
         self.params = None
 
     @abstractmethod
@@ -122,6 +120,16 @@ class AugBase(object):
         return result
 
     def _forward(self, result: dict):
+        """
+        result : {
+            'img_dim': 2 or 3
+            'img' : torch.rand((b, c, d, h, w)),
+            'seg_fields': ['gt_seg'],
+            'gt_seg' : torch.rand((b, c, d, h, w)),
+            'det_fields': ['gt_det'],
+            'gt_det' : torch.rand((b, N, 6 or 8)),
+        }
+        """
         # print(self.__class__.__name__, "forward...")
         self.isForwarding = True
         assert self.always or self.p > 0., f'self.always={self.always} or self.p={self.p} is needed.'
@@ -156,14 +164,6 @@ class AugBase(object):
     def forward(self, result: dict):
         return self._post_forward(self._forward(self._pre_forward(result)))
 
-    def multi_forward(self, result_list: Union[List[dict], dict]):
-        if self.repeats > 1:
-            result = [result_list] if isinstance(result_list, dict) else result_list
-            return [self.forward(deepcopy(r)) for r in result for _ in range(self.repeats)]
-        else:
-            assert isinstance(result_list, list) and self.repeats == 1
-            return [self.forward(result) for result in result_list]
-
     def _pre_backward(self, result: dict):
         time_cost = result['time'].pop()
         last = result['history'].pop()
@@ -195,18 +195,10 @@ class AugBase(object):
     def backward(self, result):
         return self._post_backward(self._backward(self._pre_backward(result)))
 
-    def multi_backward(self, result_list: list):
-        return [self.backward(result) for result in result_list]
-
     def __call__(self, result: Union[dict, List[dict]], forward=True):
         """return a same type object as input object"""
         if forward:
-            if isinstance(result, dict) and self.repeats == 1:
-                return self.forward(result)
-            elif isinstance(result, list) or self.repeats > 1:
-                return self.multi_forward(result)
-            else:
-                raise NotImplementedError
+            return self.forward(result)
         else:
             raise NotImplementedError
             # # while using backward, it means result has already been a list of dict

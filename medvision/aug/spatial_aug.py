@@ -68,7 +68,7 @@ class Resize(AugBase):
     def apply_to_img(self, result):
         image = result['img']
         assert image.is_cuda, 'image should be cuda'
-        assert image.ndim == self.dim + 1, 'image should be batch, channel, **dim'
+        assert image.ndim == self.dim + 1, 'image should be channel, **dim'
         device = image.device
 
         if self.dim == 2:
@@ -108,7 +108,7 @@ class Resize(AugBase):
         for key in result.get('seg_fields', []):
             image = result[key]
             assert image.is_cuda, 'image should be cuda'
-            assert image.ndim == self.dim + 1, 'image should be batch, channel, **dim'
+            assert image.ndim == self.dim + 1, 'image should be channel, **dim'
             device = image.device
 
             if self.dim == 2:
@@ -236,14 +236,14 @@ class RandomAffine(AugBase):
                  scale: Union[float, list, tuple],  # one axis only
                  shift: Union[float, list, tuple],
                  rotate: Union[float, list, tuple],  # degree 0-180
-                 sample_num=1,
+                 sampling_ratio=1,
                  order=1):
         super(RandomAffine, self).__init__()
         self.p = p
         self.scale = scale
         self.shift = shift
         self.rotate = rotate  # temp: only rotate on xy plane
-        self.sample_num = sample_num
+        self.sampling_ratio = sampling_ratio
         self.order = order
 
     def __repr__(self):
@@ -313,7 +313,7 @@ class RandomAffine(AugBase):
             rois,
             out_size,
             spatial_scale,
-            self.sample_num,
+            self.sampling_ratio,
             aligned,
             order
         ).squeeze(0)
@@ -362,7 +362,7 @@ class RandomAffine(AugBase):
                 rois,
                 out_size,
                 spatial_scale,
-                self.sample_num,
+                self.sampling_ratio,
                 aligned,
                 order
             ).squeeze(0).int()
@@ -449,27 +449,27 @@ class RandomScale(RandomAffine):
     def __init__(self,
                  p,
                  scale: Union[float, list, tuple],
-                 sample_num=1
+                 sampling_ratio=1
                  ):
-        super().__init__(p, scale=scale, shift=0, rotate=0, sample_num=sample_num)
+        super().__init__(p, scale=scale, shift=0, rotate=0, sampling_ratio=sampling_ratio)
 
 
 class RandomShift(RandomAffine):
     def __init__(self,
                  p,
                  shift: Union[float, list, tuple],
-                 sample_num=1
+                 sampling_ratio=1
                  ):
-        super().__init__(p, scale=0, shift=shift, rotate=0, sample_num=sample_num)
+        super().__init__(p, scale=0, shift=shift, rotate=0, sampling_ratio=sampling_ratio)
 
 
 class RandomRotate(RandomAffine):
     def __init__(self,
                  p,
                  rotate: Union[float, list, tuple],
-                 sample_num=1
+                 sampling_ratio=1
                  ):
-        super().__init__(p, scale=0, shift=0, rotate=rotate, sample_num=sample_num)
+        super().__init__(p, scale=0, shift=0, rotate=rotate, sampling_ratio=sampling_ratio)
 
 
 class RandomElasticDeformation(AugBase):
@@ -550,7 +550,7 @@ class RandomElasticDeformation(AugBase):
         if params is not None:
             self.params = - params
 
-    def elastic_transform(self, image: torch.Tensor, isLabel=False):
+    def elastic_transform(self, image: torch.Tensor, order=1):
         tic = time.time()
 
         if self.tmp_params is None:
@@ -577,13 +577,13 @@ class RandomElasticDeformation(AugBase):
             offset = torch.from_numpy(offset)
             self.tmp_params = offset
         toc = time.time()
-        if isLabel:
+        if order == 0:
             image = image.to(self.img_type)
         if self.dim == 2:
-            image = apply_offset_2d(image, self.tmp_params, ismask=isLabel)
+            image = apply_offset_2d(image, self.tmp_params, order=order)
         elif self.dim == 3:
-            image = apply_offset_3d(image, self.tmp_params, ismask=isLabel)
-        if isLabel:
+            image = apply_offset_3d(image, self.tmp_params, order=order)
+        if order == 0:
             image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
@@ -597,7 +597,7 @@ class RandomElasticDeformation(AugBase):
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
-            result[key] = self.elastic_transform(result[key], isLabel=True)
+            result[key] = self.elastic_transform(result[key], order=0)
 
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
@@ -631,7 +631,7 @@ class RandomElasticDeformationFast(RandomElasticDeformation):
     def __init__(self, *args, **kwargs):
         super(RandomElasticDeformationFast, self).__init__(*args, **kwargs)
 
-    def elastic_transform(self, image: torch.Tensor, isLabel=False):
+    def elastic_transform(self, image: torch.Tensor, order=1):
         tic = time.time()
         if self.tmp_params is None:
             # make first dimension is offset on each dim, e.g. 2
@@ -668,13 +668,21 @@ class RandomElasticDeformationFast(RandomElasticDeformation):
             self.tmp_params = offset
 
         toc = time.time()
-        if isLabel:
+        if order == 0:
             image = image.to(self.img_type)
         if self.dim == 2:
-            image = apply_offset_2d(image, self.tmp_params, ismask=isLabel)
+            image = apply_offset_2d(
+                image.unsqueeze(0),
+                self.tmp_params.unsqueeze(0),
+                order=order
+            ).squeeze(0)
         elif self.dim == 3:
-            image = apply_offset_3d(image, self.tmp_params, ismask=isLabel)
-        if isLabel:
+            image = apply_offset_3d(
+                image.unsqueeze(0),
+                self.tmp_params.unsqueeze(0),
+                order=order
+            ).squeeze(0)
+        if order == 0:
             image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
@@ -749,7 +757,7 @@ class CropRandomWithAffine(AugBase):
                  scale: Union[float, list, tuple],  # one axis only
                  shift: Union[float, list, tuple],
                  rotate: Union[float, list, tuple],  # degree 0-180
-                 sample_num=1,
+                 sampling_ratio=1,
                  order=1,
                  times=1):
         super(CropRandomWithAffine, self).__init__()
@@ -759,7 +767,7 @@ class CropRandomWithAffine(AugBase):
         self.scale = scale
         self.shift = shift
         self.rotate = rotate  # temp: only rotate on xy plane
-        self.sample_num = sample_num
+        self.sampling_ratio = sampling_ratio
         self.order = order
         self.times = times
 
@@ -830,7 +838,7 @@ class CropRandomWithAffine(AugBase):
             rois,
             out_size,
             spatial_scale,
-            self.sample_num,
+            self.sampling_ratio,
             aligned,
             order
         ).squeeze(0)
@@ -874,7 +882,7 @@ class CropRandomWithAffine(AugBase):
                 rois,
                 out_size,
                 spatial_scale,
-                self.sample_num,
+                self.sampling_ratio,
                 aligned,
                 order
             ).squeeze(0).int()

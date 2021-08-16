@@ -1,21 +1,17 @@
-// Modified from
-// https://github.com/facebookresearch/detectron2/tree/master/detectron2/layers/csrc/ROIAlignRotated
-// Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-#ifndef ROI_ALIGN_ROTATED_CUDA_KERNEL_CUH
-#define ROI_ALIGN_ROTATED_CUDA_KERNEL_CUH
-
+#ifndef ROI_ALIGN_CUDA_KERNEL_CUH
+#define ROI_ALIGN_CUDA_KERNEL_CUH
+#include <stdio.h>
 #include <float.h>
 
 #include "cuda_helpers.h"
 #include "interpolation_helpers_2d.h"
 
-
 /*** Forward ***/
 template <typename scalar_t>
-__global__ void roi_align_rotated_2d_forward_cuda_kernel(
+__global__ void roi_align_2d_forward_cuda_kernel(
     const int nthreads, const scalar_t *bottom_data,
     const scalar_t *bottom_rois, const scalar_t spatial_scale,
-    const int sampling_ratio, const bool aligned, const int order,
+    const int sampling_ratio, const int order,
     const int channels,
     const int height, const int width,
     const int pooled_height, const int pooled_width,
@@ -27,21 +23,20 @@ __global__ void roi_align_rotated_2d_forward_cuda_kernel(
     int c = (index / pooled_width / pooled_height) % channels;
     int n = index / pooled_width / pooled_height / channels;
 
-    const scalar_t *offset_bottom_rois = bottom_rois + n * 6;
+    const scalar_t *offset_bottom_rois = bottom_rois + n * 5;
     int roi_batch_ind = offset_bottom_rois[0];
 
     // Do not using rounding; this implementation detail is critical
-    scalar_t offset = aligned ? (scalar_t)0.5 : (scalar_t)0.0;
-    scalar_t roi_center_w = offset_bottom_rois[1] * spatial_scale - offset;
-    scalar_t roi_center_h = offset_bottom_rois[2] * spatial_scale - offset;
-    scalar_t roi_width = offset_bottom_rois[3] * spatial_scale;
-    scalar_t roi_height = offset_bottom_rois[4] * spatial_scale;
-    scalar_t theta = offset_bottom_rois[5];
-    if (!aligned) {  // for backward-compatibility only
-      // Force malformed ROIs to be 1x1
-      roi_width = max(roi_width, (scalar_t)1.);
-      roi_height = max(roi_height, (scalar_t)1.);
-    }
+    scalar_t roi_start_w = offset_bottom_rois[1] * spatial_scale;
+    scalar_t roi_start_h = offset_bottom_rois[2] * spatial_scale;
+    scalar_t roi_end_w = offset_bottom_rois[3] * spatial_scale;
+    scalar_t roi_end_h = offset_bottom_rois[4] * spatial_scale;
+    scalar_t roi_width = max(roi_end_w - roi_start_w, (scalar_t)1.);
+    scalar_t roi_height = max(roi_end_h - roi_start_h, (scalar_t)1.);
+
+    roi_width = max(roi_width, (scalar_t)1.);
+    roi_height = max(roi_height, (scalar_t)1.);
+
     scalar_t bin_size_h = static_cast<scalar_t>(roi_height) / static_cast<scalar_t>(pooled_height);
     scalar_t bin_size_w = static_cast<scalar_t>(roi_width) / static_cast<scalar_t>(pooled_width);
 
@@ -50,13 +45,6 @@ __global__ void roi_align_rotated_2d_forward_cuda_kernel(
     // We use roi_bin_grid to sample the grid and mimic integral
     int roi_bin_grid_h = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_height / pooled_height);  // e.g., = 2
     int roi_bin_grid_w = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_width / pooled_width);
-
-    // roi_start_h and roi_start_w are computed wrt the center of RoI (x, y).
-    // Appropriate translation needs to be applied after.
-    scalar_t roi_start_h = -roi_height / 2.0;
-    scalar_t roi_start_w = -roi_width / 2.0;
-    scalar_t cosTheta = cos(theta);
-    scalar_t sinTheta = sin(theta);
 
     // We do average (integral) pooling inside a bin
     const scalar_t count = max(roi_bin_grid_h * roi_bin_grid_w, 1);  // e.g. = 4
@@ -69,16 +57,12 @@ __global__ void roi_align_rotated_2d_forward_cuda_kernel(
       {
         const scalar_t x = roi_start_w + pw * bin_size_w + static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
-        // Rotate by theta (counterclockwise) around the center and translate
-        scalar_t ry = y * cosTheta - x * sinTheta + roi_center_h;
-        scalar_t rx = y * sinTheta + x * cosTheta + roi_center_w;
-
         scalar_t val;
         if (order == 0) {
-          val = nearest_2d_interpolate<scalar_t>(offset_bottom_data, height, width, ry, rx, index);
+          val = nearest_2d_interpolate<scalar_t>(offset_bottom_data, height, width, y, x, index);
         }
         else if (order == 1) {
-          val = linear_2d_interpolate<scalar_t>(offset_bottom_data, height, width, ry, rx, index);
+          val = linear_2d_interpolate<scalar_t>(offset_bottom_data, height, width, y, x, index);
         }
         output_val += val;
       }
@@ -91,9 +75,9 @@ __global__ void roi_align_rotated_2d_forward_cuda_kernel(
 
 /*** Backward ***/
 template <typename scalar_t>
-__global__ void roi_align_rotated_2d_backward_cuda_kernel(
+__global__ void roi_align_2d_backward_cuda_kernel(
     const int nthreads, const scalar_t *top_diff, const scalar_t *bottom_rois,
-    const scalar_t spatial_scale, const int sampling_ratio, const bool aligned, const int order,
+    const scalar_t spatial_scale, const int sampling_ratio, const int order,
     const int channels,
     const int height, const int width,
     const int pooled_height, const int pooled_width,
@@ -105,22 +89,20 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
     int c = (index / pooled_width / pooled_height) % channels;
     int n = index / pooled_width / pooled_height / channels;
 
-    const scalar_t *offset_bottom_rois = bottom_rois + n * 6;
+    const scalar_t *offset_bottom_rois = bottom_rois + n * 5;
     int roi_batch_ind = offset_bottom_rois[0];
 
     // Do not round
-    scalar_t offset = aligned ? (scalar_t)0.5 : (scalar_t)0.0;
-    scalar_t roi_center_w = offset_bottom_rois[1] * spatial_scale - offset;
-    scalar_t roi_center_h = offset_bottom_rois[2] * spatial_scale - offset;
-    scalar_t roi_width = offset_bottom_rois[3] * spatial_scale;
-    scalar_t roi_height = offset_bottom_rois[4] * spatial_scale;
-    // scalar_t theta = offset_bottom_rois[5] * M_PI / 180.0;
-    scalar_t theta = offset_bottom_rois[5];
-    if (!aligned) {  // for backward-compatibility only
-      // Force malformed ROIs to be 1x1
-      roi_width = max(roi_width, (scalar_t)1.);
-      roi_height = max(roi_height, (scalar_t)1.);
-    }
+    scalar_t roi_start_w = offset_bottom_rois[1] * spatial_scale;
+    scalar_t roi_start_h = offset_bottom_rois[2] * spatial_scale;
+    scalar_t roi_end_w = offset_bottom_rois[3] * spatial_scale;
+    scalar_t roi_end_h = offset_bottom_rois[4] * spatial_scale;
+    scalar_t roi_width = max(roi_end_w - roi_start_w, (scalar_t)1.);
+    scalar_t roi_height = max(roi_end_h - roi_start_h, (scalar_t)1.);
+
+    roi_width = max(roi_width, (scalar_t)1.);
+    roi_height = max(roi_height, (scalar_t)1.);
+
     scalar_t bin_size_h = static_cast<scalar_t>(roi_height) / static_cast<scalar_t>(pooled_height);
     scalar_t bin_size_w = static_cast<scalar_t>(roi_width) / static_cast<scalar_t>(pooled_width);
 
@@ -135,13 +117,6 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
     int roi_bin_grid_h = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_height / pooled_height);  // e.g., = 2
     int roi_bin_grid_w = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_width / pooled_width);
 
-    // roi_start_h and roi_start_w are computed wrt the center of RoI (x, y).
-    // Appropriate translation needs to be applied after.
-    scalar_t roi_start_h = -roi_height / 2.0;
-    scalar_t roi_start_w = -roi_width / 2.0;
-    scalar_t cosTheta = cos(theta);
-    scalar_t sinTheta = sin(theta);
-
     // We do average (integral) pooling inside a bin
     const scalar_t count = roi_bin_grid_h * roi_bin_grid_w;  // e.g. = 4
 
@@ -155,16 +130,11 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
         const scalar_t x = roi_start_w + pw * bin_size_w +
             static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
-        // Rotate by theta around the center and translate
-        scalar_t ry = y * cosTheta - x * sinTheta + roi_center_h;
-        scalar_t rx = y * sinTheta + x * cosTheta + roi_center_w;
-
         scalar_t w1, w2, w3, w4;
         int x0, x1, y0, y1;
-
         if (order == 0) {
           nearest_2d_interpolate_gradient<scalar_t>(height, width,
-                                                    ry, rx,
+                                                    y, x,
                                                     w1, w2, w3, w4,
                                                     x0, x1,
                                                     y0, y1,
@@ -172,7 +142,7 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
         }
         else if (order == 1) {
           linear_2d_interpolate_gradient<scalar_t>(height, width,
-                                                   ry, rx,
+                                                   y, x,
                                                    w1, w2, w3, w4,
                                                    x0, x1,
                                                    y0, y1,
@@ -195,4 +165,4 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
   }        // CUDA_1D_KERNEL_LOOP
 }  // RoIAlignBackward
 
-#endif  // ROI_ALIGN_ROTATED_CUDA_KERNEL_CUH
+#endif  // ROI_ALIGN_CUDA_KERNEL_CUH

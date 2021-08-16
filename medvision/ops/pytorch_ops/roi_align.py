@@ -21,17 +21,29 @@ class RoIAlign(nn.Module):
 
     def forward(self,
                 feat_map: torch.Tensor,
-                bboxes: Union[List[torch.Tensor], torch.Tensor]):
+                bboxes: Union[List[torch.Tensor], torch.Tensor],
+                order=1
+                ):
         """
-
+        Float32 only
         :param feat_map: Tensor (N, C, D, H, W)
         :param bboxes: list of Tensors [(K_i, 6), ...]
             for K is roi count and 6 stands for x1, y1, z1, x2, y2, z2
             or Tensor [S_K, 1 + 6/ 4]
+        :param order: interpolation order, default is 1 (liner-2/3d)
         :return:
             boxes are Tensor: Tensor (N, K, C, D, H, W)
             boxes are list: list of Tensors [(K_i, C, D, H, W), ...]
         """
+        feat_map = feat_map.float()
+        bboxes = bboxes.float()
+        if order == 1:
+            mode = 'bilinear'
+        elif order == 0:
+            mode = 'nearest'
+        else:
+            raise NotImplementedError
+
         if isinstance(bboxes, list):
             result_list = list()
             for batch_feat, batch_rois in zip(feat_map, bboxes):
@@ -40,7 +52,7 @@ class RoIAlign(nn.Module):
                 feat = batch_feat.expand(k, *batch_feat.shape).to(feat_map.device)
                 grids = self.generate_grids(batch_rois, feat.shape).to(feat_map.device)
 
-                output_feat = torch.cat([F.grid_sample(feat, sub_grids, mode='bilinear', align_corners=self.aligned)
+                output_feat = torch.cat([F.grid_sample(feat, sub_grids, mode=mode, align_corners=self.aligned)
                                          for sub_grids in torch.split(grids, self.max_parallel_in_sampling)])
                 result_list.append(output_feat)
             return torch.cat(result_list, dim=0)
@@ -51,7 +63,7 @@ class RoIAlign(nn.Module):
                 feat = feat_map[batch_idx].unsqueeze(0)
                 grids = self.generate_grids(bbox.unsqueeze(0), feat.shape).to(feat_map.device)
 
-                output_feat = torch.cat([F.grid_sample(feat, sub_grids, mode='bilinear', align_corners=self.aligned)
+                output_feat = torch.cat([F.grid_sample(feat, sub_grids, mode=mode, align_corners=self.aligned)
                                          for sub_grids in torch.split(grids, self.max_parallel_in_sampling)])
                 result_list.append(output_feat)
             return torch.cat(result_list, dim=0)

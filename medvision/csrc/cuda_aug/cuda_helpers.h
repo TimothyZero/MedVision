@@ -15,7 +15,7 @@ using at::Half;
 using at::Tensor;
 using phalf = at::Half;
 
-const int CUDA_NUM_THREADS = 512;
+const int CUDA_NUM_THREADS = 256;
 const int THREADS_PER_BLOCK = CUDA_NUM_THREADS;
 
 inline int GET_BLOCKS(const int N)

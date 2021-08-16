@@ -17,7 +17,7 @@ deform_2d_cuda_forward(const at::Tensor &input,
                     const int group,
                     const int deformable_group,
                     const int im2col_step,
-                    const bool ismask);
+                    const int order);
 
 at::Tensor
 deform_2d(const at::Tensor &input,
@@ -35,7 +35,7 @@ deform_2d(const at::Tensor &input,
           const int group,
           const int deformable_group,
           const int im2col_step,
-          const bool ismask)
+          const int order)
 {
     if (input.type().is_cuda())
     {
@@ -48,7 +48,7 @@ deform_2d(const at::Tensor &input,
                                    group,
                                    deformable_group,
                                    im2col_step,
-                                   ismask);
+                                   order);
 #else
         AT_ERROR("Not compiled with GPU support");
 #endif

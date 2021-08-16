@@ -4,7 +4,7 @@ using namespace at;
 
 void Affine2DForwardCUDAKernelLauncher(
     const at::Tensor features, const at::Tensor rois, const float spatial_scale,
-    const int sample_num, const bool aligned, const int order,
+    const int sampling_ratio, const bool aligned, const int order,
     const int channels,
     const int height, const int width,
     const int num_rois,
@@ -20,7 +20,7 @@ void Affine2DForwardCUDAKernelLauncher(
         affine_2d_forward_cuda_kernel<scalar_t>
             <<<GET_BLOCKS(output_size), THREADS_PER_BLOCK>>>(
                 output_size, bottom_data, rois_data, scalar_t(spatial_scale),
-                sample_num, aligned, order, channels,
+                sampling_ratio, aligned, order, channels,
                 height, width,
                 pooled_height, pooled_width,
                 top_data);

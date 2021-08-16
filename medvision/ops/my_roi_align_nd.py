@@ -4,7 +4,7 @@ from torch.autograd import Function
 from medvision import _C
 
 
-class RoIAlignRotated2DFunction(Function):
+class RoIAlign2DFunction(Function):
     @staticmethod
     def forward(ctx,
                 features,
@@ -12,7 +12,6 @@ class RoIAlignRotated2DFunction(Function):
                 output_size,
                 spatial_scale,
                 sampling_ratio=0,
-                aligned=True,
                 order=1):
         if isinstance(output_size, int):
             out_h = output_size
@@ -27,7 +26,6 @@ class RoIAlignRotated2DFunction(Function):
                 '"output_size" must be an integer or tuple of integers')
         ctx.spatial_scale = spatial_scale
         ctx.sampling_ratio = sampling_ratio
-        ctx.aligned = aligned
         ctx.order = order
         ctx.save_for_backward(rois)
         ctx.feature_size = features.size()
@@ -36,7 +34,7 @@ class RoIAlignRotated2DFunction(Function):
         num_rois = rois.size(0)
 
         output = features.new_zeros(num_rois, num_channels, out_h, out_w)
-        _C.roi_align_rotated_2d_forward(
+        _C.roi_align_2d_forward(
             features,
             rois,
             output,
@@ -44,7 +42,6 @@ class RoIAlignRotated2DFunction(Function):
             out_w,
             spatial_scale,
             sampling_ratio,
-            aligned,
             order)
         return output
 
@@ -52,7 +49,6 @@ class RoIAlignRotated2DFunction(Function):
     def backward(ctx, grad_output):
         feature_size = ctx.feature_size
         spatial_scale = ctx.spatial_scale
-        aligned = ctx.aligned
         order = ctx.order
         sampling_ratio = ctx.sampling_ratio
         rois = ctx.saved_tensors[0]
@@ -67,7 +63,7 @@ class RoIAlignRotated2DFunction(Function):
         if ctx.needs_input_grad[0]:
             grad_input = rois.new_zeros(batch_size, num_channels, data_height,
                                         data_width)
-            _C.roi_align_rotated_2d_backward(
+            _C.roi_align_2d_backward(
                 grad_output.contiguous(),
                 rois,
                 grad_input,
@@ -75,12 +71,11 @@ class RoIAlignRotated2DFunction(Function):
                 out_w,
                 spatial_scale,
                 sampling_ratio,
-                aligned,
                 order)
         return grad_input, grad_rois, None, None, None, None, None
 
 
-class RoIAlignRotated3DFunction(Function):
+class RoIAlign3DFunction(Function):
     @staticmethod
     def forward(ctx,
                 features,
@@ -88,7 +83,6 @@ class RoIAlignRotated3DFunction(Function):
                 output_size,
                 spatial_scale,
                 sampling_ratio=0,
-                aligned=True,
                 order=1):
         if isinstance(output_size, int):
             out_d = output_size
@@ -105,7 +99,6 @@ class RoIAlignRotated3DFunction(Function):
                 '"output_size" must be an integer or tuple of integers')
         ctx.spatial_scale = spatial_scale
         ctx.sampling_ratio = sampling_ratio
-        ctx.aligned = aligned
         ctx.order = order
         ctx.save_for_backward(rois)
         ctx.feature_size = features.size()
@@ -114,7 +107,7 @@ class RoIAlignRotated3DFunction(Function):
         num_rois = rois.size(0)
 
         output = features.new_zeros(num_rois, num_channels, out_d, out_h, out_w)
-        _C.roi_align_rotated_3d_forward(
+        _C.roi_align_3d_forward(
             features,
             rois,
             output,
@@ -123,7 +116,6 @@ class RoIAlignRotated3DFunction(Function):
             out_w,
             spatial_scale,
             sampling_ratio,
-            aligned,
             order)
         return output
 
@@ -131,7 +123,6 @@ class RoIAlignRotated3DFunction(Function):
     def backward(ctx, grad_output):
         feature_size = ctx.feature_size
         spatial_scale = ctx.spatial_scale
-        aligned = ctx.aligned
         order = ctx.order
         sampling_ratio = ctx.sampling_ratio
         rois = ctx.saved_tensors[0]
@@ -147,7 +138,7 @@ class RoIAlignRotated3DFunction(Function):
         if ctx.needs_input_grad[0]:
             grad_input = rois.new_zeros(batch_size, num_channels, data_depth, data_height,
                                         data_width)
-            _C.roi_align_rotated_3d_backward(
+            _C.roi_align_3d_backward(
                 grad_output.contiguous(),
                 rois,
                 grad_input,
@@ -156,16 +147,15 @@ class RoIAlignRotated3DFunction(Function):
                 out_w,
                 spatial_scale,
                 sampling_ratio,
-                aligned,
                 order)
         return grad_input, grad_rois, None, None, None, None, None
 
 
-roi_align_rotated_2d = RoIAlignRotated2DFunction.apply
-roi_align_rotated_3d = RoIAlignRotated3DFunction.apply
+roi_align_2d = RoIAlign2DFunction.apply
+roi_align_3d = RoIAlign3DFunction.apply
 
 
-class RoIAlignRotated(nn.Module):
+class MyRoIAlign(nn.Module):
     """RoI align pooling layer for rotated proposals.
 
     It accepts a feature map of shape (N, C, H, W) and rois with shape
@@ -208,20 +198,18 @@ class RoIAlignRotated(nn.Module):
     def __init__(self,
                  output_size,
                  spatial_scale,
-                 sampling_ratio=-1,
-                 aligned=True):
-        super(RoIAlignRotated, self).__init__()
+                 sampling_ratio=-1):
+        super(MyRoIAlign, self).__init__()
         assert iter(output_size)
 
         self.output_size = output_size
         self.spatial_scale = float(spatial_scale)
         self.sampling_ratio = int(sampling_ratio)
-        self.aligned = aligned
         self.dim = len(self.output_size)
         if self.dim == 2:
-            self.roi_align = roi_align_rotated_2d
+            self.roi_align = roi_align_2d
         elif self.dim == 3:
-            self.roi_align = roi_align_rotated_3d
+            self.roi_align = roi_align_3d
         else:
             raise Exception("Tried to init RoIAlign module with incorrect output size: {}".format(self.output_size))
 
@@ -229,4 +217,4 @@ class RoIAlignRotated(nn.Module):
         assert order in [0, 1], "only support order = 0 (nearest) or 1 (linear)"
         return self.roi_align(features, rois, self.output_size,
                               self.spatial_scale,
-                              self.sampling_ratio, self.aligned, order)
+                              self.sampling_ratio, order)

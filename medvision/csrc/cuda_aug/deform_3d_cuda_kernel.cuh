@@ -17,7 +17,7 @@ __global__ void deformable_im2col_gpu_kernel(
     const int channel_per_deformable_group,
     const int batch_size, const int num_channels, const int deformable_group,
     const int depth_col, const int height_col, const int width_col,
-    scalar_t *data_col, const bool ismask)
+    scalar_t *data_col, const int order)
 {
   // launch channels * batch_size * depth_col * height_col * width_col cores
   CUDA_1D_KERNEL_LOOP(index, n)
@@ -73,10 +73,12 @@ __global__ void deformable_im2col_gpu_kernel(
             //const int cur_height = height - h_in;
             //const int cur_width = width - w_in;
             //val = deformable_im2col_bilinear(data_im_ptr, height, width, cur_depth, cur_height, cur_width, map_d, map_h, map_w);
-            if (ismask) {
+            if (order == 0) {
               val = nearest_3d_interpolate(data_im_ptr, depth, height, width, d_im, h_im, w_im, index);
-            }else{
+            }else if (order == 1) {
               val = linear_3d_interpolate(data_im_ptr, depth, height, width, d_im, h_im, w_im, index);
+            }else if (order == 3) {
+              val = hermite_3d_interpolate(data_im_ptr, depth, height, width, d_im, h_im, w_im, index);
             }
           }
           *data_col_ptr = val;

@@ -138,7 +138,7 @@ class DeformConv2d(nn.Module):
         s += f'padding={self.padding}, '
         s += f'dilation={self.dilation}, '
         s += f'groups={self.groups}, '
-        s += f'deform_groups={self.deformable_groups})'
+        s += f'deformable_groups={self.deformable_groups})'
         return s
 
 

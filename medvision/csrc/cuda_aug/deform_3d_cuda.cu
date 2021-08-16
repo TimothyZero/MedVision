@@ -15,7 +15,7 @@ void deformable_3d_im2col_cuda(cudaStream_t stream,
   const int stride_d, const int stride_h, const int stride_w,
   const int dilation_d, const int dilation_h, const int dilation_w,
   const int deformable_group, scalar_t* data_col,
-  const bool ismask)
+  const int order)
 {
   // num_axes should be smaller than block size
   const int channel_per_deformable_group = channels / deformable_group;
@@ -31,7 +31,7 @@ void deformable_3d_im2col_cuda(cudaStream_t stream,
     dilation_d, dilation_h, dilation_w,
     channel_per_deformable_group,
     batch_size, channels, deformable_group,
-    depth_col, height_col, width_col, data_col, ismask);
+    depth_col, height_col, width_col, data_col, order);
 
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess)
@@ -60,7 +60,7 @@ deform_3d_cuda_forward(const at::Tensor &input,
                     const int group,
                     const int deformable_group,
                     const int im2col_step,
-                    const bool ismask)
+                    const int order)
 {
     // THCAssertSameGPU(THCudaTensor_checkGPU(state, 5, input, weight, bias, offset, mask));
 
@@ -127,7 +127,7 @@ deform_3d_cuda_forward(const at::Tensor &input,
                                              depth_out, height_out, width_out, kernel_d, kernel_h, kernel_w,
                                              pad_d, pad_h, pad_w, stride_d, stride_h, stride_w, dilation_d, dilation_h, dilation_w,
                                              deformable_group,
-                                             columns.data<scalar_t>(), ismask);
+                                             columns.data<scalar_t>(), order);
 
         }));
 

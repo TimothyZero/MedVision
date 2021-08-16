@@ -18,7 +18,7 @@ at::Tensor nms_3d(
     return nms_3d_cuda(b, threshold);
 
   }
-  AT_ERROR("Not compiled with GPU support");
+  AT_ERROR("Not compiled with CPU support");
 //  at::Tensor result = nms_cpu(dets, scores, threshold);
 //  return result;
 }

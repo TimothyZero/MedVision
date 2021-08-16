@@ -14,7 +14,7 @@ template <typename scalar_t>
 __global__ void affine_3d_forward_cuda_kernel(
     const int nthreads, const scalar_t *bottom_data,
     const scalar_t *bottom_rois, const scalar_t spatial_scale,
-    const int sample_num, const bool aligned, const int order,
+    const int sampling_ratio, const bool aligned, const int order,
     const int channels,
     const int depth, const int height, const int width,
     const int pooled_depth, const int pooled_height, const int pooled_width,
@@ -55,9 +55,9 @@ __global__ void affine_3d_forward_cuda_kernel(
     const scalar_t *offset_bottom_data = bottom_data + (roi_batch_ind * channels + c) * depth * height * width;
 
     // We use roi_bin_grid to sample the grid and mimic integral
-    int roi_bin_grid_d = (sample_num > 0) ? sample_num : ceil(roi_depth / pooled_depth);
-    int roi_bin_grid_h = (sample_num > 0) ? sample_num : ceil(roi_height / pooled_height);  // e.g., = 2
-    int roi_bin_grid_w = (sample_num > 0) ? sample_num : ceil(roi_width / pooled_width);
+    int roi_bin_grid_d = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_depth / pooled_depth);
+    int roi_bin_grid_h = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_height / pooled_height);  // e.g., = 2
+    int roi_bin_grid_w = (sampling_ratio > 0) ? sampling_ratio : ceil(roi_width / pooled_width);
 
     // roi_start_h and roi_start_w are computed wrt the center of RoI (x, y).
     // Appropriate translation needs to be applied after.

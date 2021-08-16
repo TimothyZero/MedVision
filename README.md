@@ -65,15 +65,28 @@ torch  1.6.0, 1.7.1, 1.8.1
 cuda   9.0,   10.1,  10.2
 ```
 
-### Some issues
+### Tips
 
 1. ‘AT_CHECK’ was not declared in this scope
 
-For torch 1.5+, AT_CHECK is replaced with TORCH_CHECK, so if your torch is higher, 
+For torch 1.5+, AT_CHECK is replaced with TORCH_CHECK, so if your torch version > 1.5 ,
 ```cuda
 #define AT_CHECK TORCH_CHECK
 ```
 at the beginning of the .cu code.
+
+2. debug in CUDA
+```c
+#include <stdio.h>
+
+printf("Hello from block %d, thread %d\n", a, b);
+```
+
+3. `.contiguous()` is very import in roi align!
+
+4. CUDA Too many resources requested for launch
+   
+    "Too Many Resources Requested for Launch - This error means that the number of registers available on the multiprocessor is being exceeded. Reduce the number of threads per block to solve the problem."
 
 ### License
 

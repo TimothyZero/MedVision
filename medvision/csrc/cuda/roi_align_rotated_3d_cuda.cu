@@ -4,7 +4,7 @@ using namespace at;
 
 void ROIAlignRotated3DForwardCUDAKernelLauncher(
     const at::Tensor features, const at::Tensor rois, const float spatial_scale,
-    const int sample_num, const bool aligned,
+    const int sampling_ratio, const bool aligned, const int order,
     const int channels,
     const int depth, const int height, const int width,
     const int num_rois,
@@ -20,7 +20,7 @@ void ROIAlignRotated3DForwardCUDAKernelLauncher(
         roi_align_rotated_3d_forward_cuda_kernel<scalar_t>
             <<<GET_BLOCKS(output_size), THREADS_PER_BLOCK>>>(
                 output_size, bottom_data, rois_data, scalar_t(spatial_scale),
-                sample_num, aligned, channels,
+                sampling_ratio, aligned, order, channels,
                 depth, height, width,
                 pooled_depth, pooled_height, pooled_width,
                 top_data);
@@ -31,7 +31,7 @@ void ROIAlignRotated3DForwardCUDAKernelLauncher(
 
 void ROIAlignRotated3DBackwardCUDAKernelLauncher(
     const at::Tensor top_grad, const at::Tensor rois, const float spatial_scale,
-    const int sample_num, const bool aligned,
+    const int sampling_ratio, const bool aligned, const int order,
     const int channels,
     const int depth, const int height, const int width,
     const int num_rois,
@@ -45,8 +45,8 @@ void ROIAlignRotated3DBackwardCUDAKernelLauncher(
         scalar_t *bottom_diff = bottom_grad.data<scalar_t>();
         roi_align_rotated_3d_backward_cuda_kernel<scalar_t>
             <<<GET_BLOCKS(output_size), THREADS_PER_BLOCK>>>(
-                output_size, top_diff, rois_data, spatial_scale, sample_num,
-                aligned, channels,
+                output_size, top_diff, rois_data, spatial_scale, sampling_ratio,
+                aligned, order, channels,
                 depth, height, width,
                 pooled_depth, pooled_height, pooled_width,
                 bottom_diff);

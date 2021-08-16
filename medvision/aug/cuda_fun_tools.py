@@ -7,7 +7,7 @@ def affine_2d(features,
               rois,
               out_size,
               spatial_scale,
-              sample_num=0,
+              sampling_ratio=0,
               aligned=True,
               order=1):
     if isinstance(out_size, int):
@@ -36,7 +36,7 @@ def affine_2d(features,
         out_h,
         out_w,
         spatial_scale,
-        sample_num,
+        sampling_ratio,
         aligned,
         order)
     return output
@@ -46,7 +46,7 @@ def affine_3d(features,
               rois,
               out_size,
               spatial_scale,
-              sample_num=0,
+              sampling_ratio=0,
               aligned=True,
               order=1):
     # clockwise is not used in 3d
@@ -79,17 +79,21 @@ def affine_3d(features,
         out_h,
         out_w,
         spatial_scale,
-        sample_num,
+        sampling_ratio,
         aligned,
         order)
     return output
 
 
-def apply_offset_2d(img, offset, ismask=False):
-    assert img.shape[1:] == offset.shape[1:]
-    assert offset.shape[0] == 2
+def apply_offset_2d(img, offset, order=1):
+    """
+    image : b, c, d, h, w
+    offset : b, 2, d, h, w
+    """
+    assert img.shape[2:] == offset.shape[2:]
+    assert offset.shape[1] == 2
 
-    channels = img.shape[0]
+    channels = img.shape[1]
     kernel_size = [1, 1]
     stride = [1, 1]
     padding = [0, 0]
@@ -100,12 +104,12 @@ def apply_offset_2d(img, offset, ismask=False):
 
     weight = torch.eye(channels, channels).unsqueeze(-1).unsqueeze(-1).cuda()
     bias = torch.zeros(channels).cuda()
-    offset = offset.unsqueeze(0).cuda()
+    offset = offset.cuda()
     if img.dtype == torch.float16:
         offset = offset.half()
         bias = bias.half()
         weight = weight.half()
-    output = _C.deform_2d(img.unsqueeze(0).contiguous(),
+    output = _C.deform_2d(img.contiguous(),
                           weight.contiguous(),
                           bias.contiguous(),
                           offset.contiguous(),
@@ -116,16 +120,16 @@ def apply_offset_2d(img, offset, ismask=False):
                           group,
                           deformable_groups,
                           im2col_step,
-                          ismask).squeeze(0)
+                          order)
     assert img.shape == output.shape
     return output
 
 
-def apply_offset_3d(img, offset, ismask=False):
-    assert img.shape[1:] == offset.shape[1:]
-    assert offset.shape[0] == 3
+def apply_offset_3d(img, offset, order=1):
+    assert img.shape[2:] == offset.shape[2:]
+    assert offset.shape[1] == 3
 
-    channels = img.shape[0]
+    channels = img.shape[1]
     kernel_size = [1, 1, 1]
     stride = [1, 1, 1]
     padding = [0, 0, 0]
@@ -136,12 +140,12 @@ def apply_offset_3d(img, offset, ismask=False):
 
     weight = torch.eye(channels, channels).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).cuda()
     bias = torch.zeros(channels).cuda()
-    offset = offset.unsqueeze(0).cuda()
+    offset = offset.cuda()
     if img.dtype == torch.float16:
         offset = offset.half()
         bias = bias.half()
         weight = weight.half()
-    output = _C.deform_3d(img.unsqueeze(0).contiguous(),
+    output = _C.deform_3d(img.contiguous(),
                           weight.contiguous(),
                           bias.contiguous(),
                           offset.contiguous(),
@@ -152,7 +156,7 @@ def apply_offset_3d(img, offset, ismask=False):
                           group,
                           deformable_groups,
                           im2col_step,
-                          ismask).squeeze(0)
+                          order)
     assert img.shape == output.shape, f"input is {img.shape}, out is {output.shape}"
     return output
 
