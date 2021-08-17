@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 from scipy import ndimage
 
-from medvision.aug.cuda_fun_tools import affine_2d, affine_3d
+from medvision.aug_cuda.cuda_fun_tools import affine_2d, affine_3d
 
 
 def test2d():

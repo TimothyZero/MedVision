@@ -6,7 +6,7 @@ import numpy as np
 from skimage import io
 from skimage.util import img_as_float32
 
-from medvision.aug import Pad, Display
+from medvision.aug_cuda import Pad, Display
 from medvision.visulaize import volume2tiled
 
 

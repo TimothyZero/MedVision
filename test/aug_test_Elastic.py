@@ -7,7 +7,7 @@ from skimage import io
 from skimage.util import img_as_float32
 from matplotlib.colors import Normalize
 
-from medvision.aug import RandomElasticDeformation, RandomElasticDeformationFast, Display
+from medvision.aug_cuda import RandomElasticDeformation, RandomElasticDeformationFast, Display
 from medvision.visulaize import volume2tiled
 from medvision.io import ImageIO
 

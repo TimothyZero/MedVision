@@ -7,7 +7,7 @@ from skimage import io
 from skimage.util import img_as_float32
 from matplotlib.colors import Normalize
 
-from medvision.aug.cuda_fun_tools import random_noise_2d, random_noise_3d
+from medvision.aug_cuda.cuda_fun_tools import random_noise_2d, random_noise_3d
 from medvision.visulaize import volume2tiled
 
 

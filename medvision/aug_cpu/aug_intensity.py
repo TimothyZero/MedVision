@@ -14,7 +14,7 @@ from .utils import getSphere, clipBBoxes
 from .aug_base import OperationStage, AugmentationStage
 
 
-# -------------- channel aug --------------- #
+# -------------- channel aug_cuda --------------- #
 
 class RGB2Gray(OperationStage):
     def __repr__(self):

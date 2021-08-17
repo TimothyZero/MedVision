@@ -6,7 +6,7 @@ import numpy as np
 from skimage import io
 from skimage.util import img_as_float32
 
-from medvision.transforms_cuda_batch import BatchCudaRandomAffine, Display
+from medvision.aug_cuda_batch import BatchCudaRandomAffine, Display
 from medvision.visulaize import volume2tiled
 
 

@@ -106,9 +106,9 @@ class ModulatedDeformConv2d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = _pair(kernel_size)
-        self.stride = _pair(stride)
-        self.padding = _pair(padding)
-        self.dilation = _pair(dilation)
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
         self.groups = groups
         self.deformable_groups = deformable_groups
         self.with_bias = bias
@@ -141,9 +141,9 @@ class ModulatedDeformConv2d(nn.Module):
         s += f'(in_channels={self.in_channels}, '
         s += f'out_channels={self.out_channels}, '
         s += f'kernel_size={self.kernel_size}, '
-        s += f'stride={self.stride}, '
-        s += f'padding={self.padding}, '
-        s += f'dilation={self.dilation}, '
+        s += f'stride={_pair(self.stride)}, '
+        s += f'padding={_pair(self.padding)}, '
+        s += f'dilation={_pair(self.dilation)}, '
         s += f'groups={self.groups}, '
         s += f'deform_groups={self.deformable_groups})'
         return s

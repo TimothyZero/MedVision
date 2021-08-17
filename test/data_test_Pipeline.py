@@ -2,7 +2,7 @@ import os
 import time
 import json
 
-from medvision.aug import *
+from medvision.aug_cuda import *
 
 
 def test2d():

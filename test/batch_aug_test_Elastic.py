@@ -6,7 +6,7 @@ import numpy as np
 from skimage import io
 from skimage.util import img_as_float32
 
-from medvision.transforms_cuda_batch import BatchCudaRandomElasticDeformationFast, Display
+from medvision.aug_cuda_batch import BatchCudaRandomElasticDeformationFast, Display
 from medvision.visulaize import volume2tiled
 
 
@@ -102,9 +102,9 @@ def test3d():
 
 if __name__ == "__main__":
     __dir__ = os.path.dirname(os.path.realpath(__file__))
-    save_to = os.path.join(__dir__, 'BatchRandomElasticDeformation')
+    save_to = os.path.join(__dir__, 'BatchCudaRandomElasticDeformationFast')
     os.makedirs(save_to, exist_ok=True)
     os.chdir(__dir__)
 
     test2d()
-    # test3d()
+    test3d()

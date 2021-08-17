@@ -10,8 +10,8 @@ import random
 import SimpleITK as sitk
 import scipy.ndimage as ndi
 
-from ..aug.cuda_fun_tools import affine_2d, affine_3d
-from ..aug.cuda_fun_tools import apply_offset_2d, apply_offset_3d
+from ..aug_cuda.cuda_fun_tools import affine_2d, affine_3d
+from ..aug_cuda.cuda_fun_tools import apply_offset_2d, apply_offset_3d
 from .base import BatchCudaAugBase
 
 

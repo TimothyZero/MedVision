@@ -6,7 +6,7 @@ import numpy as np
 from skimage import io
 from skimage.util import img_as_float32
 
-from medvision.aug import CropRandom, CropCenter, CropForeground, CropFirstDet, Display
+from medvision.aug_cuda import CropRandom, CropCenter, CropForeground, CropFirstDet, Display
 from medvision.visulaize import volume2tiled
 
 

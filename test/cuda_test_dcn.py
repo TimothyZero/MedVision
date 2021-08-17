@@ -19,21 +19,21 @@ def test_2d():
     dcn = cn(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1).cuda()
     print(dcn)
 
-    # scaler = GradScaler()
-    # op = Adam(lr=0.001, params=dcn.parameters())
-    #
-    # for i in range(100):
-    #
-    #     with autocast():
-    #         out = dcn(x_2d)
-    #         l = loss(out, seg)
-    #
-    #     print(out.shape, out.type(), l, l.type())
-    #
-    #     op.zero_grad()
-    #     scaler.scale(l).backward()
-    #     scaler.step(op)
-    #     scaler.update()
+    scaler = GradScaler()
+    op = Adam(lr=0.001, params=dcn.parameters())
+
+    for i in range(100):
+
+        with autocast():
+            out = dcn(x_2d)
+            l = loss(out, seg)
+
+        print(out.shape, out.type(), l, l.type())
+
+        op.zero_grad()
+        scaler.scale(l).backward()
+        scaler.step(op)
+        scaler.update()
 
 
 def test_3d():
@@ -48,21 +48,21 @@ def test_3d():
     dcn = cn(in_channels=3, out_channels=7, kernel_size=3, stride=1, padding=1).cuda()
     print(dcn)
 
-    # scaler = GradScaler()
-    # op = Adam(lr=0.001, params=dcn.parameters())
-    #
-    # for i in range(100):
-    #
-    #     with autocast():
-    #         out = dcn(x_3d)
-    #         l = loss(out, seg)
-    #
-    #     print(out.shape, out.type(), l, l.type())
-    #
-    #     op.zero_grad()
-    #     scaler.scale(l).backward()
-    #     scaler.step(op)
-    #     scaler.update()
+    scaler = GradScaler()
+    op = Adam(lr=0.001, params=dcn.parameters())
+
+    for i in range(100):
+
+        with autocast():
+            out = dcn(x_3d)
+            l = loss(out, seg)
+
+        print(out.shape, out.type(), l, l.type())
+
+        op.zero_grad()
+        scaler.scale(l).backward()
+        scaler.step(op)
+        scaler.update()
 
 
 if __name__ == '__main__':

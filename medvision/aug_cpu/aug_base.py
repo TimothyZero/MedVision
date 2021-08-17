@@ -281,8 +281,8 @@ class OperationStage(Stage):
 
     def __call__(self, result, forward=True):
         if forward:
-            # if result is a list, it means it has done multi aug
-            # if self.repeats > 1, it means it need to do multi aug
+            # if result is a list, it means it has done multi aug_cuda
+            # if self.repeats > 1, it means it need to do multi aug_cuda
             if isinstance(result, list) or self.repeats > 1:
                 return self.multi_forward(result)
             else:

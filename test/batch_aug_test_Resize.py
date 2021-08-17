@@ -6,7 +6,7 @@ import numpy as np
 from skimage import io
 from skimage.util import img_as_float32
 
-from medvision.transforms_cuda_batch import BatchCudaResize, Display
+from medvision.aug_cuda_batch import BatchCudaResize, Display
 from medvision.visulaize import volume2tiled
 
 
@@ -99,7 +99,7 @@ def test3d():
 
 if __name__ == "__main__":
     __dir__ = os.path.dirname(os.path.realpath(__file__))
-    save_to = os.path.join(__dir__, 'BatchResize')
+    save_to = os.path.join(__dir__, 'BatchCudaResize')
     os.makedirs(save_to, exist_ok=True)
     os.chdir(__dir__)
 
