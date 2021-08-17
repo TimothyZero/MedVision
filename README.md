@@ -50,10 +50,15 @@ Viewer              | 2/3D  | yes
 ### Installation
 
 ```shell
+# maybe
+export PATH="path_to/gcc-5.4+/bin/:$PATH"
+export CUDA_HOME="/path_to/cuda-9.0+"
+# make sure your torch.version.cuda == cuda_home_version
+
 git clone https://github.com/TimothyZero/MedVision
-pip install -e .  # -e : editable, sometimes may cause cpu 100% 
+python setup.py develop  # recommended
 # or
-python setup.py develop
+pip install -e .  # -e : editable, sometimes may cause cpu 100%
 ```
 
 

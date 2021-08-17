@@ -779,3 +779,125 @@ class BatchCudaCropRandomWithAffine(BatchCudaAugBase):
             #
             #     rotated_bboxes.append(bbox)
             # result[key] = clipBBoxes(self.dim, np.array(rotated_bboxes), self.patch_size)
+
+
+class BatchCudaCropCenterWithAffine(BatchCudaCropRandomWithAffine):
+    def _forward_crop_params(self, result: dict):
+        batch_start, batch_end = [], []
+        for i in range(self.batch):
+            start = tuple(map(lambda a, da: a // 2 - da // 2, self.image_shape, self.patch_size))
+            end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            batch_start.append(start[::-1])
+            batch_end.append(end[::-1])
+        batch_start = np.array(batch_start)
+        batch_end = np.array(batch_end)
+        return batch_start, batch_end
+
+
+class BatchCudaCropForegroundWithAffine(BatchCudaCropRandomWithAffine):
+    def __init__(self, border=12, **kwargs):
+        super(BatchCudaCropForegroundWithAffine, self).__init__(**kwargs)
+        self.border = border
+
+    def _forward_crop_params(self, result: dict):
+        assert 'gt_seg' in result.keys() or 'pseudo_mask' in result.keys()
+
+        batch_start, batch_end = [], []
+        for i in range(self.batch):
+            try:
+                if 'gt_seg' in result.keys():
+                    foreground = result['gt_seg'][i, 0]
+                else:
+                    foreground = result['pseudo_mask'][i, 0]
+                objs = ndi.find_objects(ndi.label(foreground)[0])
+                if len(objs):
+                    obj = random.choice(objs)
+                    patch_start_min = tuple([
+                        min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                            self.image_shape[dim] - self.patch_size[dim])
+                        for dim in range(len(obj))])
+                    patch_start_max = tuple(
+                        [min(max(obj[dim].start - self.border, 0), self.image_shape[dim] - self.patch_size[dim])
+                         for dim in range(len(obj))])
+                    start = tuple(
+                        map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                    end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+                else:
+                    start = tuple(map(lambda a, da: random.randint(0, a - da), self.image_shape, self.patch_size))
+                    end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            except Exception as e:
+                raise e
+
+            batch_start.append(start[::-1])
+            batch_end.append(end[::-1])
+        batch_start = np.array(batch_start)
+        batch_end = np.array(batch_end)
+        return batch_start, batch_end
+
+
+class BatchCudaCropDetWithAffine(BatchCudaCropRandomWithAffine):
+    def __init__(self, border=12, **kwargs):
+        super(BatchCudaCropDetWithAffine, self).__init__(**kwargs)
+        self.border = border
+
+    def _forward_crop_params(self, result: dict):
+        assert 'gt_det' in result.keys(), "it only used for detection tasks"
+
+        batch_start, batch_end = [], []
+        for i in range(self.batch):
+            try:
+                selected_bbox_idx = min(self.current_repeat_idx % self.repeats, len(result['gt_det']) - 1)
+                obj = result['gt_det'][selected_bbox_idx]
+                self.current_repeat_idx += 1
+                obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
+                patch_start_min = tuple(
+                    [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                patch_start_max = tuple(
+                    [min(max(obj[dim].start - self.border, 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                start = tuple(map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            except Exception as e:
+                raise e
+
+            batch_start.append(start[::-1])
+            batch_end.append(end[::-1])
+        batch_start = np.array(batch_start)
+        batch_end = np.array(batch_end)
+        return batch_start, batch_end
+
+
+class BatchCudaCropFirstDetWithAffine(BatchCudaCropRandomWithAffine):
+    def __init__(self, border=12, **kwargs):
+        super(BatchCudaCropFirstDetWithAffine, self).__init__(**kwargs)
+        self.border = border
+
+    def _forward_crop_params(self, result: dict):
+        assert 'gt_det' in result.keys(), "it only used for detection tasks"
+
+        batch_start, batch_end = [], []
+        for i in range(self.batch):
+            try:
+                obj = result['gt_det'][0]
+                obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
+                patch_start_min = tuple(
+                    [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                patch_start_max = tuple(
+                    [min(max(obj[dim].start - self.border, 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                start = tuple(map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            except Exception as e:
+                raise e
+
+            batch_start.append(start[::-1])
+            batch_end.append(end[::-1])
+        batch_start = np.array(batch_start)
+        batch_end = np.array(batch_end)
+        return batch_start, batch_end
