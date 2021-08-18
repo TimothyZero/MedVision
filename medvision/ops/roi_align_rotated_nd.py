@@ -168,12 +168,14 @@ roi_align_rotated_3d = RoIAlignRotated3DFunction.apply
 class RoIAlignRotated(nn.Module):
     """RoI align pooling layer for rotated proposals.
 
-    It accepts a feature map of shape (N, C, H, W) and rois with shape
-    (n, 6) with each roi decoded as (batch_index, center_x, center_y, center_z,
-    w, h, d, angle1, angle2, angle3 ). The angle is in radian.
+    It accepts a feature map of shape (N, C, H, W) or (N, C, D, H, W) and rois
+    with shape (n, 6) or (n, 10) with each roi decoded as
+    (batch_index, center_x, center_y, w, h, angle1) or
+    (batch_index, center_x, center_y, center_z, w, h, d, angleX, angleY, angleZ).
+    The angle is in radian.
 
     Args:
-        output_size (tuple): h, w
+        output_size (tuple): (h, w) or (d,h,w)
         spatial_scale (float): scale the input boxes by this number
         sampling_ratio (int): number of inputs samples to take for each
             output sample. 0 to take samples densely for current models.
@@ -182,6 +184,9 @@ class RoIAlignRotated(nn.Module):
             Default: True.
 
     Note:
+        The implementation of RoIAlign is modified from
+        https://github.com/open-mmlab/mmdetection
+
         The implementation of RoIAlign when aligned=True is modified from
         https://github.com/facebookresearch/detectron2/
 

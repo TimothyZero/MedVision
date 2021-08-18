@@ -14,11 +14,10 @@ def nms_nd(dets, iou_threshold):
 
     Parameters
     ----------
-    boxes : Tensor[N, 4] for 2D or Tensor[N,6] for 3D.
+    dets : Tensor[N, 4+1] for 2D or Tensor[N, 6+1] for 3D.
         boxes to perform NMS on. They
-        are expected to be in (y1, x1, y2, x2(, z1, z2)) format
-    scores : Tensor[N]
-        scores for each one of the boxes
+        are expected to be in (x1, y1, x2, y2, score) or
+        (x1, y1, z1, x2, y2, z2, score) format
     iou_threshold : float
         discards all overlapping
         boxes with IoU < iou_threshold

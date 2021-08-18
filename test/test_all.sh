@@ -15,9 +15,8 @@ python batch_aug_test_CropAffine.py
 python batch_aug_test_Elastic.py
 python batch_aug_test_Resize.py
 
-python cuda_test_dcn.py
-python cuda_test_Intensity.py
-python cuda_test_interpolation.py
-python cuda_test_IoU.py
-python cuda_test_NMS.py
-python cuda_test_RoIAlign.py
+python ops_test_dcn.py
+python ops_test_Intensity.py
+python ops_test_IoU.py
+python ops_test_NMS.py
+python ops_test_RoIAlign.py

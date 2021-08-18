@@ -5,14 +5,14 @@ def bbox_overlaps_nd_pytorch(anchors: torch.Tensor,
                              targets: torch.Tensor,
                              dim=None,
                              mode='iou',
-                             is_aligned=False,
+                             aligned=False,
                              eps=1e-6) -> torch.Tensor:
     """
     :param anchors:  [N, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
     :param targets:  [M, (y1,x1,y2,x2) | (y1,x1,z1,y2,x2,z2)]
     :param dim: dimension of bbox
     :param mode:
-    :param is_aligned: if N == M
+    :param aligned: if N == M
     :param eps:
     :return:   IoU:  [N,M]
     """
@@ -22,13 +22,13 @@ def bbox_overlaps_nd_pytorch(anchors: torch.Tensor,
         dim = targets.shape[-1] // 2
         assert dim in (2, 3)
 
-    if is_aligned:
+    if aligned:
         assert anchors.shape[:-1] == targets.shape[:-1]
 
     anchors = anchors[..., :2 * dim]
     targets = targets[..., :2 * dim]
 
-    if not is_aligned:
+    if not aligned:
         # expand dim
         anchors = torch.unsqueeze(anchors, dim=1)  # [N, 1, 2*dim]
         targets = torch.unsqueeze(targets, dim=0)  # [1, M, 2*dim]

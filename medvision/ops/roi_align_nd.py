@@ -1,121 +1,188 @@
-"""
-ROIAlign implementation from pytorch framework
-(https://github.com/pytorch/vision/blob/master/torchvision/ops/roi_align.py on Nov 14 2019)
-
-adapted for 3D support without additional python function interface (only cpp function interface).
-copied from MIC-DKFZ/RegRCNN
-"""
-
-import torch
-from torch import nn
-from torchvision.ops._utils import convert_boxes_to_roi_format
+import torch.nn as nn
+from torch.autograd import Function
 
 from medvision import _C
 
 
-def roi_align_2d(
-        input: torch.Tensor,
-        boxes: torch.Tensor,
-        output_size,
-        spatial_scale: float = 1.0,
-        sampling_ratio: int = -1
-) -> torch.Tensor:
-    """
-    Performs Region of Interest (RoI) Align operator described in Mask R-CNN
+class RoIAlign2DFunction(Function):
+    @staticmethod
+    def forward(ctx,
+                features,
+                rois,
+                output_size,
+                spatial_scale,
+                sampling_ratio=0,
+                order=1):
+        if isinstance(output_size, int):
+            out_h = output_size
+            out_w = output_size
+        elif isinstance(output_size, tuple):
+            assert len(output_size) == 2
+            assert isinstance(output_size[0], int)
+            assert isinstance(output_size[1], int)
+            out_h, out_w = output_size
+        else:
+            raise TypeError(
+                '"output_size" must be an integer or tuple of integers')
+        ctx.spatial_scale = spatial_scale
+        ctx.sampling_ratio = sampling_ratio
+        ctx.order = order
+        ctx.save_for_backward(rois)
+        ctx.feature_size = features.size()
 
-    Arguments:
-        input: (Tensor[N, C, H, W]), input tensor
-        boxes: (Tensor[K, 5] or List[Tensor[L, 4]]), the box coordinates in (y1, x1, y2, x2)
-            NOTE: the order of box coordinates, (y1, x1, y2, x2), is swapped w.r.t. to the order in the
-                original torchvision implementation (which requires (x1, y1, x2, y2)).
-            format where the regions will be taken from. If a single Tensor is passed,
-            then the first column should contain the batch index. If a list of Tensors
-            is passed, then each Tensor will correspond to the boxes for an element i
-            in a batch
-        output_size: (Tuple[int, int]) the size of the output after the cropping
-            is performed, as (height, width)
-        spatial_scale: (float) a scaling factor that maps the input coordinates to
-            the box coordinates. Default: 1.0
-        sampling_ratio: (int) number of sampling points in the interpolation grid
-            used to compute the output value of each pooled output bin. If > 0,
-            then exactly sampling_ratio x sampling_ratio grid points are used. If
-            <= 0, then an adaptive number of grid points are used (computed as
-            ceil(roi_width / pooled_w), and likewise for height). Default: -1
+        batch_size, num_channels, data_height, data_width = features.size()
+        num_rois = rois.size(0)
 
-    Returns:
-        output (Tensor[K, C, output_size[0], output_size[1]])
-    """
-    rois = boxes
-    if isinstance(rois, list):
-        rois = convert_boxes_to_roi_format(rois)
-    return _C.roi_align_2d(input, rois, spatial_scale, output_size[0], output_size[1], sampling_ratio)
+        output = features.new_zeros(num_rois, num_channels, out_h, out_w)
+        _C.roi_align_2d_forward(
+            features,
+            rois,
+            output,
+            out_h,
+            out_w,
+            spatial_scale,
+            sampling_ratio,
+            order)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        feature_size = ctx.feature_size
+        spatial_scale = ctx.spatial_scale
+        order = ctx.order
+        sampling_ratio = ctx.sampling_ratio
+        rois = ctx.saved_tensors[0]
+        assert feature_size is not None
+        batch_size, num_channels, data_height, data_width = feature_size
+
+        out_w = grad_output.size(3)
+        out_h = grad_output.size(2)
+
+        grad_input = grad_rois = None
+
+        if ctx.needs_input_grad[0]:
+            grad_input = rois.new_zeros(batch_size, num_channels, data_height,
+                                        data_width)
+            _C.roi_align_2d_backward(
+                grad_output.contiguous(),
+                rois,
+                grad_input,
+                out_h,
+                out_w,
+                spatial_scale,
+                sampling_ratio,
+                order)
+        return grad_input, grad_rois, None, None, None, None, None
 
 
-def roi_align_3d(
-        input: torch.Tensor,
-        boxes: torch.Tensor,
-        output_size,
-        spatial_scale: float = 1.0,
-        sampling_ratio: int = -1
-) -> torch.Tensor:
-    """
-    Performs Region of Interest (RoI) Align operator described in Mask R-CNN for 3-dim input.
+class RoIAlign3DFunction(Function):
+    @staticmethod
+    def forward(ctx,
+                features,
+                rois,
+                output_size,
+                spatial_scale,
+                sampling_ratio=0,
+                order=1):
+        if isinstance(output_size, int):
+            out_d = output_size
+            out_h = output_size
+            out_w = output_size
+        elif isinstance(output_size, tuple):
+            assert len(output_size) == 3
+            assert isinstance(output_size[0], int)
+            assert isinstance(output_size[1], int)
+            assert isinstance(output_size[2], int)
+            out_d, out_h, out_w = output_size
+        else:
+            raise TypeError(
+                '"output_size" must be an integer or tuple of integers')
+        ctx.spatial_scale = spatial_scale
+        ctx.sampling_ratio = sampling_ratio
+        ctx.order = order
+        ctx.save_for_backward(rois)
+        ctx.feature_size = features.size()
 
-    Arguments:
-        input (Tensor[N, C, H, W, D]): input tensor
-        boxes (Tensor[K, 7] or List[Tensor[L, 6]]): the box coordinates in (y1, x1, y2, x2, z1, z2).
-            NOTE: the order of x, y box coordinates, (y1, x1, y2, x2), is swapped w.r.t. to the order in the
-                original torchvision implementation (which requires (x1, y1, x2, y2)).
-            format where the regions will be taken from. If a single Tensor is passed,
-            then the first column should contain the batch index. If a list of Tensors
-            is passed, then each Tensor will correspond to the boxes for an element i
-            in a batch
-        output_size (int or Tuple[int, int, int]): the size of the output after the cropping
-            is performed, as (height, width, depth)
-        spatial_scale (float): a scaling factor that maps the input coordinates to
-            the box coordinates. Default: 1.0
-        sampling_ratio (int): number of sampling points in the interpolation grid
-            used to compute the output value of each pooled output bin. If > 0,
-            then exactly sampling_ratio x sampling_ratio grid points are used. If
-            <= 0, then an adaptive number of grid points are used (computed as
-            ceil(roi_width / pooled_w), and likewise for height). Default: -1
+        batch_size, num_channels, data_depth, data_height, data_width = features.size()
+        num_rois = rois.size(0)
 
-    Returns:
-        output (Tensor[K, C, output_size[0], output_size[1], output_size[2]])
-    """
-    rois = boxes
-    if isinstance(rois, list):
-        rois = convert_boxes_to_roi_format(rois)
-    return _C.roi_align_3d(input, rois, spatial_scale, output_size[0], output_size[1], output_size[2],
-                           sampling_ratio)
+        output = features.new_zeros(num_rois, num_channels, out_d, out_h, out_w)
+        _C.roi_align_3d_forward(
+            features,
+            rois,
+            output,
+            out_d,
+            out_h,
+            out_w,
+            spatial_scale,
+            sampling_ratio,
+            order)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        feature_size = ctx.feature_size
+        spatial_scale = ctx.spatial_scale
+        order = ctx.order
+        sampling_ratio = ctx.sampling_ratio
+        rois = ctx.saved_tensors[0]
+        assert feature_size is not None
+        batch_size, num_channels, data_depth, data_height, data_width = feature_size
+
+        out_w = grad_output.size(4)
+        out_h = grad_output.size(3)
+        out_d = grad_output.size(2)
+
+        grad_input = grad_rois = None
+
+        if ctx.needs_input_grad[0]:
+            grad_input = rois.new_zeros(batch_size, num_channels, data_depth, data_height,
+                                        data_width)
+            _C.roi_align_3d_backward(
+                grad_output.contiguous(),
+                rois,
+                grad_input,
+                out_d,
+                out_h,
+                out_w,
+                spatial_scale,
+                sampling_ratio,
+                order)
+        return grad_input, grad_rois, None, None, None, None, None
+
+
+roi_align_2d = RoIAlign2DFunction.apply
+roi_align_3d = RoIAlign3DFunction.apply
 
 
 class RoIAlign(nn.Module):
-    """
-    Performs Region of Interest (RoI) Align operator described in Mask R-CNN for 2- or 3-dim input.
+    """RoI align pooling layer for proposals.
 
-    Arguments:
-        output_size (int or Tuple[int, int(, int)]): the size of the output after the cropping
-            is performed, as (height, width(, depth))
-        spatial_scale (float): a scaling factor that maps the input coordinates to
-            the box coordinates. Default: 1.0
-        sampling_ratio (int): number of sampling points in the interpolation grid
-            used to compute the output value of each pooled output bin. If > 0,
-            then exactly sampling_ratio x sampling_ratio grid points are used. If
-            <= 0, then an adaptive number of grid points are used (computed as
-            ceil(roi_width / pooled_w), and likewise for height (and depth)). Default: -1
+    It accepts a feature map of shape (N, C, H, W) or (N, C, D, H, W) and rois with shape
+    (n, 5) or (n, 7) with each roi decoded as (batch_index, x1, y1, x2, y2) or
+    (batch_index, x1, y1, z1, x2, y2, z2).
 
-    Returns:
-        output (Tensor[K, C, output_size[0], output_size[1](, output_size[2])])
+    Args:
+        output_size (tuple): (h, w) or (d,h,w)
+        spatial_scale (float): scale the input boxes by this number
+        sampling_ratio (int): number of inputs samples to take for each
+            output sample. 0 to take samples densely for current models.
+    Note:
+        The implementation of RoIAlign is modified from
+        https://github.com/open-mmlab/mmdetection
     """
 
-    def __init__(self, output_size, spatial_scale=1., sampling_ratio=-1):
+    def __init__(self,
+                 output_size,
+                 spatial_scale,
+                 sampling_ratio=-1):
         super(RoIAlign, self).__init__()
-        self.output_size = output_size
-        self.spatial_scale = spatial_scale
-        self.sampling_ratio = sampling_ratio
-        self.dim = len(self.output_size)
+        assert iter(output_size)
 
+        self.output_size = output_size
+        self.spatial_scale = float(spatial_scale)
+        self.sampling_ratio = int(sampling_ratio)
+        self.dim = len(self.output_size)
         if self.dim == 2:
             self.roi_align = roi_align_2d
         elif self.dim == 3:
@@ -123,29 +190,8 @@ class RoIAlign(nn.Module):
         else:
             raise Exception("Tried to init RoIAlign module with incorrect output size: {}".format(self.output_size))
 
-    def forward(self, feature: torch.Tensor, rois: torch.Tensor) -> torch.Tensor:
-        if self.dim == 2:
-            # ATTENTION : Input shape is HW => yx, required y1,x1,y2,x2
-            # but my coord is x1,y1,x2,y2
-            if isinstance(rois, list):
-                rois = [roi[:, [1, 0, 3, 2]] for roi in rois]
-            else:
-                rois = rois[:, [0, 2, 1, 4, 3]]
-        else:
-            # ATTENTION : Input shape is HWD => yxz, required y1,x1,y2,x2,z1,z2,  <----------------
-            # but my code is :  shape is DHW => zyx, coord is x1,y1,z1,x2,y2,z2                    |
-            # equals to z1,x1,y1,z2,x2,y2 based on HWD => yxz      ----------> swap axes ------->  |
-            if isinstance(rois, list):
-                rois = [roi[:, [2, 1, 5, 4, 0, 3]] for roi in rois]
-            else:
-                rois = rois[:, [0, 3, 2, 6, 5, 1, 4]]
-        return self.roi_align(feature, rois, self.output_size, self.spatial_scale, self.sampling_ratio)
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__ + '('
-        repr_str += 'output_size=' + str(self.output_size)
-        repr_str += ', spatial_scale=' + str(self.spatial_scale)
-        repr_str += ', sampling_ratio=' + str(self.sampling_ratio)
-        repr_str += ', dimension=' + str(self.dim)
-        repr_str += ')'
-        return repr_str
+    def forward(self, features, rois, order=1):
+        assert order in [0, 1], "only support order = 0 (nearest) or 1 (linear)"
+        return self.roi_align(features, rois, self.output_size,
+                              self.spatial_scale,
+                              self.sampling_ratio, order)

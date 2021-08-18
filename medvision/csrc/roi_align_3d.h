@@ -1,108 +1,117 @@
-/* adopted from pytorch framework
-    https://github.com/pytorch/vision/blob/master/torchvision/csrc/ROIAlign3D.h on Nov 15 2019.
-
-    does not include CPU support but could be added with this interface.
-*/
-
+#pragma once
 #include <torch/extension.h>
 
-/*---------------- 3D implementation ---------------------------*/
-
-// Declarations that are initialized in cuda file
-at::Tensor ROIAlign3D_forward_cuda(const at::Tensor& input, const at::Tensor& rois, const float spatial_scale,
-                                const int pooled_height, const int pooled_width, const int pooled_depth,
-                                const int sampling_ratio);
-at::Tensor ROIAlign3D_backward_cuda(const at::Tensor& grad, const at::Tensor& rois, const float spatial_scale,
-    const int pooled_height, const int pooled_width, const int pooled_depth, const int batch_size, const int channels,
-    const int height, const int width, const int depth, const int sampling_ratio);
-
-// Interface for Python
-at::Tensor ROIAlign3D_forward(
-    const at::Tensor& input, // Input feature map.
-    const at::Tensor& rois, // List of ROIs to pool over.
-    const double spatial_scale, // The scale of the image features. ROIs will be  scaled to this.
-    const int64_t pooled_height, // The height of the pooled feature map.
-    const int64_t pooled_width, // The width of the pooled feature
-    const int64_t pooled_depth,
-    const int64_t sampling_ratio) // The number of points to sample in each bin along each axis.
-{
-  if (input.type().is_cuda()) {
-    return ROIAlign3D_forward_cuda(input, rois, spatial_scale, pooled_height, pooled_width, pooled_depth, sampling_ratio);
-  }
-  AT_ERROR("Not compiled with CPU support");
-  //return ROIAlign3D_forward_cpu(input, rois, spatial_scale, pooled_height, pooled_width, sampling_ratio);
-}
-
-at::Tensor ROIAlign3D_backward(const at::Tensor& grad, const at::Tensor& rois, const float spatial_scale,
-    const int pooled_height, const int pooled_width, const int pooled_depth, const int batch_size, const int channels,
-    const int height, const int width, const int depth, const int sampling_ratio) {
-  if (grad.type().is_cuda()) {
-    return ROIAlign3D_backward_cuda( grad, rois, spatial_scale, pooled_height, pooled_width, pooled_depth, batch_size,
-     channels, height, width, depth, sampling_ratio);
-  }
-  AT_ERROR("Not compiled with CPU support");
-  //return ROIAlign3D_backward_cpu(grad, rois, spatial_scale, pooled_height, pooled_width, batch_size, channels,
-  //   height, width, sampling_ratio);
-}
-
 using namespace at;
-using torch::Tensor;
-using torch::autograd::AutogradContext;
-using torch::autograd::Variable;
-using torch::autograd::variable_list;
 
-class ROIAlign3DFunction : public torch::autograd::Function<ROIAlign3DFunction> {
- public:
-  static variable_list forward(
-      AutogradContext* ctx,
-      Variable input,
-      Variable rois,
-      const double spatial_scale,
-      const int64_t pooled_height,
-      const int64_t pooled_width,
-      const int64_t pooled_depth,
-      const int64_t sampling_ratio) {
-    ctx->saved_data["spatial_scale"] = spatial_scale;
-    ctx->saved_data["pooled_height"] = pooled_height;
-    ctx->saved_data["pooled_width"] = pooled_width;
-    ctx->saved_data["pooled_depth"] = pooled_depth;
-    ctx->saved_data["sampling_ratio"] = sampling_ratio;
-    ctx->saved_data["input_shape"] = input.sizes();
-    ctx->save_for_backward({rois});
-    auto result = ROIAlign3D_forward(input, rois, spatial_scale, pooled_height, pooled_width, pooled_depth,
-     sampling_ratio);
-    return {result};
+#ifdef WITH_CUDA
+void ROIAlign3DForwardCUDAKernelLauncher(
+    const at::Tensor features, const at::Tensor rois, const float spatial_scale,
+    const int sample_ratio, const int order,
+    const int channels,
+    const int depth, const int height, const int width,
+    const int num_rois,
+    const int aligned_depth, const int aligned_height, const int aligned_width,
+    at::Tensor output);
+
+void ROIAlign3DBackwardCUDAKernelLauncher(
+    const at::Tensor top_grad, const at::Tensor rois, const float spatial_scale,
+    const int sample_ratio, const int order,
+    const int channels,
+    const int depth, const int height, const int width,
+    const int num_rois,
+    const int aligned_depth, const int aligned_height, const int aligned_width,
+    at::Tensor bottom_grad);
+
+void roi_align_3d_forward_cuda(
+  Tensor features, Tensor rois, Tensor output,
+  int aligned_depth, int aligned_height, int aligned_width,
+  float spatial_scale, int sample_ratio,
+  int order) {
+  // Number of ROIs
+  int num_rois = rois.size(0);
+  int size_rois = rois.size(1);
+
+  if (size_rois != 7) {
+    AT_ERROR("wrong roi size! size_rois should be 7");
   }
 
-  static variable_list backward(
-      AutogradContext* ctx,
-      variable_list grad_output) {
-    // Use data saved in forward
-    auto saved = ctx->get_saved_variables();
-    auto rois = saved[0];
-    auto input_shape = ctx->saved_data["input_shape"].toIntList();
-    auto grad_in = ROIAlign3D_backward(
-        grad_output[0],
-        rois,
-        ctx->saved_data["spatial_scale"].toDouble(),
-        ctx->saved_data["pooled_height"].toInt(),
-        ctx->saved_data["pooled_width"].toInt(),
-        ctx->saved_data["pooled_depth"].toInt(),
-        input_shape[0],
-        input_shape[1],
-        input_shape[2],
-        input_shape[3],
-        input_shape[4],
-        ctx->saved_data["sampling_ratio"].toInt());
-    return {
-        grad_in, Variable(), Variable(), Variable(), Variable(), Variable(), Variable()};
+  int num_channels = features.size(1);
+  int data_depth = features.size(2);
+  int data_height = features.size(3);
+  int data_width = features.size(4);
+  ROIAlign3DForwardCUDAKernelLauncher(
+      features, rois, spatial_scale, sample_ratio, order,
+      num_channels, data_depth, data_height, data_width, num_rois, aligned_depth, aligned_height,
+      aligned_width, output);
+}
+
+void roi_align_3d_backward_cuda(
+  Tensor top_grad, Tensor rois, Tensor bottom_grad,
+  int aligned_depth, int aligned_height, int aligned_width,
+  float spatial_scale, int sample_ratio, int order) {
+  // Number of ROIs
+  int num_rois = rois.size(0);
+  int size_rois = rois.size(1);
+  if (size_rois != 7) {
+    AT_ERROR("wrong roi size! size_rois should be 7");
   }
-};
 
-Tensor roi_align_3d(const Tensor& input, const Tensor& rois, const double spatial_scale, const int64_t pooled_height,
-    const int64_t pooled_width, const int64_t pooled_depth, const int64_t sampling_ratio) {
+  int num_channels = bottom_grad.size(1);
+  int data_depth = bottom_grad.size(2);
+  int data_height = bottom_grad.size(3);
+  int data_width = bottom_grad.size(4);
+  ROIAlign3DBackwardCUDAKernelLauncher(
+      top_grad, rois, spatial_scale, sample_ratio, order,
+      num_channels, data_depth, data_height, data_width, num_rois, aligned_depth, aligned_height,
+      aligned_width, bottom_grad);
+}
+#endif
 
-  return ROIAlign3DFunction::apply(input, rois, spatial_scale, pooled_height, pooled_width, pooled_depth,
-                                    sampling_ratio)[0];
 
+void roi_align_3d_forward(Tensor input, Tensor rois, Tensor output,
+                               int aligned_depth, int aligned_height, int aligned_width,
+                               float spatial_scale, int sampling_ratio,
+                               int order) {
+  if (input.device().is_cuda()) {
+#ifdef WITH_CUDA
+//    CHECK_CUDA_INPUT(input);
+//    CHECK_CUDA_INPUT(rois);
+//    CHECK_CUDA_INPUT(output);
+
+    roi_align_3d_forward_cuda(input, rois, output, aligned_depth, aligned_height,
+                                   aligned_width, spatial_scale, sampling_ratio,
+                                   order);
+#else
+    AT_ERROR("RoIAlign is not compiled with GPU support");
+#endif
+  } else {
+//    CHECK_CPU_INPUT(input);
+//    CHECK_CPU_INPUT(rois);
+//    CHECK_CPU_INPUT(output);
+//    roi_alignforward_cpu(input, rois, output, aligned_height,
+//                                  aligned_width, spatial_scale, sampling_ratio,
+//                                  aligned, clockwise);
+    AT_ERROR("RoIAlign is not implemented on CPU");
+  }
+}
+
+void roi_align_3d_backward(Tensor top_grad, Tensor rois,
+                                Tensor bottom_grad, int aligned_depth, int aligned_height,
+                                int aligned_width, float spatial_scale,
+                                int sampling_ratio, int order) {
+  if (top_grad.device().is_cuda()) {
+#ifdef WITH_CUDA
+//    CHECK_CUDA_INPUT(top_grad);
+//    CHECK_CUDA_INPUT(rois);
+//    CHECK_CUDA_INPUT(bottom_grad);
+
+    roi_align_3d_backward_cuda(top_grad, rois, bottom_grad, aligned_depth, aligned_height,
+                                    aligned_width, spatial_scale,
+                                    sampling_ratio, order);
+#else
+    AT_ERROR("RoIAlign is not compiled with GPU support");
+#endif
+  } else {
+    AT_ERROR("RoIAlign is not implemented on CPU");
+  }
 }

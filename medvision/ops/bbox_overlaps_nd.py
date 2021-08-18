@@ -5,14 +5,15 @@ from medvision import _C
 
 def bbox_overlaps_nd(bboxes1, bboxes2, mode='iou', aligned=False, offset=0):
     """Calculate overlap between two set of bboxes.
+    modified from https://github.com/open-mmlab/mmdetection
 
     If ``aligned`` is ``False``, then calculate the ious between each bbox
     of bboxes1 and bboxes2, otherwise the ious between each aligned pair of
     bboxes1 and bboxes2.
 
     Args:
-        bboxes1 (Tensor): shape (m, 4) in <x1, y1, x2, y2> format or empty.
-        bboxes2 (Tensor): shape (n, 4) in <x1, y1, x2, y2> format or empty.
+        bboxes1 (Tensor): shape (m, 4/6) in <x1, y1, x2, y2> or <x1, y1, z1, x2, y2, z2> format or empty.
+        bboxes2 (Tensor): shape (n, 4/6) in <x1, y1, x2, y2> or <x1, y1, z1, x2, y2, z2> format or empty.
             If aligned is ``True``, then m and n must be equal.
         mode (str): "iou" (intersection over union) or iof (intersection over
             foreground).

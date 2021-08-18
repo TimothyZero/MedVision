@@ -22,9 +22,8 @@ from skimage.util import img_as_float32
 from torchvision.ops import RoIAlign as RoIAlignTorchvision
 
 # 2d is exactly the same with RoIAlignTorchvision
-from medvision.ops import RoIAlign as RoIAlignCuda
+from medvision.ops import RoIAlign
 from medvision.ops import RoIAlignRotated
-from medvision.ops import MyRoIAlign
 from medvision.ops.pytorch_ops import RoIAlign as RoIAlignTorchFun
 from medvision.visulaize import volume2tiled
 
@@ -69,10 +68,9 @@ def test2d(img_path, nearest=False):
                             [0, 161.5, 111.5, 417.5, 367.5],
                         ] * 1000)
 
-    call_roi_align_2d(filename + 'RoIAlignTorchvision', RoIAlignTorchvision, fs, rois, device='cuda')
+    call_roi_align_2d(filename + 'RoIAlignTorchvision', RoIAlignTorchvision, fs, rois, device='cpu')
     call_roi_align_2d(filename + 'RoIAlignTorchFun', RoIAlignTorchFun, fs, rois, nearest=nearest)
-    call_roi_align_2d(filename + 'MyRoIAlign', MyRoIAlign, fs, rois, nearest=nearest)
-    call_roi_align_2d(filename + 'RoIAlignCuda', RoIAlignCuda, fs, rois)
+    call_roi_align_2d(filename + 'RoIAlign', RoIAlign, fs, rois, nearest=nearest)
 
     # rotated_rois is : batch_index, center_x, center_y, w, h, angle
     rotated_rois1 = torch.tensor([
@@ -93,7 +91,7 @@ def call_roi_align_3d(name, obj, fs, rois, device='cuda', nearest=False):
         fs, rois = fs.float().to(device), rois.to(device)
 
         tic = time.time()
-        r = obj(output_size=(30, 356, 356), spatial_scale=1.0, sampling_ratio=1)
+        r = obj(output_size=(30, 178, 178), spatial_scale=1.0, sampling_ratio=1)
         if nearest:
             a = r(fs, rois, order=0)  # [num_boxes,  C, D, H, W]
         else:
@@ -121,8 +119,7 @@ def test3d(img_path, nearest=False):
     fs = torch.cat([fs1, fs2], dim=0)
 
     rois = torch.tensor([[0, 9.5, 9.5, 59.5, 187.5, 187.5, 89.5]])  # xyz order
-    call_roi_align_3d(filename + 'RoIAlignCuda', RoIAlignCuda, fs, rois)
-    call_roi_align_3d(filename + 'MyRoIAlign', MyRoIAlign, fs, rois, nearest=nearest)
+    call_roi_align_3d(filename + 'RoIAlign', RoIAlign, fs, rois, nearest=nearest)
 
     rotated_rois1 = torch.tensor([[0, 99., 99., 75., 178, 178, 30, 0, 0, 0]])
     rotated_rois2 = torch.tensor([[0, 99., 99., 75., 178, 178, 30, 0, 0, math.pi * -45/180]])

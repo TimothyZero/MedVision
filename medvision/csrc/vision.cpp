@@ -4,8 +4,6 @@
 #include "bbox_overlaps_3d.h"
 #include "roi_align_2d.h"
 #include "roi_align_3d.h"
-#include "my_roi_align_2d.h"
-#include "my_roi_align_3d.h"
 #include "roi_align_rotated_2d.h"
 #include "roi_align_rotated_3d.h"
 #include "deform_conv_2d.h"
@@ -32,9 +30,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
     m.def("bbox_overlaps_2d", &bbox_overlaps_2d, "bbox_overlaps_2d");
     m.def("bbox_overlaps_3d", &bbox_overlaps_3d, "bbox_overlaps_3d");
-
-    m.def("roi_align_2d", &roi_align_2d, "ROIAlign 2D in c++ and/or cuda");
-    m.def("roi_align_3d", &roi_align_3d, "ROIAlign 3D in c++ and/or cuda");
     
     m.def("roi_align_2d_forward", &roi_align_2d_forward, "roi_align_2d_forward");
     m.def("roi_align_2d_backward", &roi_align_2d_backward, "roi_align_2d_backward");
