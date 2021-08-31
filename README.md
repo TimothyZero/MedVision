@@ -76,7 +76,9 @@ cuda   9.0,   10.1,  10.2
 
 For torch 1.5+, AT_CHECK is replaced with TORCH_CHECK, so if your torch version > 1.5 ,
 ```cuda
+#ifndef AT_CHECK
 #define AT_CHECK TORCH_CHECK
+#endif
 ```
 at the beginning of the .cu code.
 

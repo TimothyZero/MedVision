@@ -4,7 +4,9 @@
 
 using namespace at;
 
+#ifndef AT_CHECK
 #define AT_CHECK TORCH_CHECK
+#endif
 
 void modulated_deformable_2d_im2col_cuda(
     const at::Tensor data_im, const at::Tensor data_offset, const at::Tensor data_mask,

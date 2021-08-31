@@ -11,7 +11,9 @@
 #include <cmath>
 #include <vector>
 
+#ifndef AT_CHECK
 #define AT_CHECK TORCH_CHECK
+#endif
 
 void DeformablePSROIPoolForward(
     const at::Tensor data, const at::Tensor bbox, const at::Tensor trans,
