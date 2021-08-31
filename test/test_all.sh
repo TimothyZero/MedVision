@@ -11,8 +11,11 @@ python aug_test_Patches.py
 python aug_test_Resize.py
 
 python batch_aug_test_Affine.py
+python batch_aug_test_Blur.py
 python batch_aug_test_CropAffine.py
 python batch_aug_test_Elastic.py
+python batch_aug_test_Flip.py
+python batch_aug_test_Noise.py
 python batch_aug_test_Resize.py
 
 python ops_test_dcn.py

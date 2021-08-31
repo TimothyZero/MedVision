@@ -15,6 +15,60 @@ from ..aug_cuda.cuda_fun_tools import apply_offset_2d, apply_offset_3d
 from .base import BatchCudaAugBase
 
 
+class BatchCudaRandomFlip(BatchCudaAugBase):
+    def __init__(self, p,
+                 axes: list = None):
+        super(BatchCudaRandomFlip, self).__init__()
+        self.p = p
+        self.axes = axes  # not used
+        self.flip_p = 0.5
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += '(p={}, axes={})'.format(self.p, self.axes)
+        return repr_str
+
+    @property
+    def canBackward(self):
+        return True
+
+    def _forward_params(self, result: dict):
+        self._init_params(result)
+        batch_params = []
+        for i in range(self.batch):
+            batch_params.append(random.choices([-1, 1],
+                                               weights=[self.flip_p, 1 - self.flip_p],
+                                               k=self.dim))
+        self.params = batch_params
+        result[self.key_name] = tuple(self.params)
+
+    def _backward_params(self, result: dict):
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
+        if params:
+            # 2d [-1, 1]
+            # 3d [1, -1, 1]
+            self.params = params
+
+    def apply_to_img(self, result):
+        for b in range(self.batch):
+            # b, c, d, h, w
+            flipped = [i + 1 for i, f in enumerate(self.params[b]) if f == -1]
+            if len(flipped):
+                result['img'][b] = torch.flip(result['img'][b], flipped)
+
+    def apply_to_seg(self, result):
+        for b in range(self.batch):
+            flipped = [i + 1 for i, f in enumerate(self.params[b]) if f == -1]
+            if len(flipped):
+                for key in result.get('seg_fields', []):
+                    result[key][b] = torch.flip(result[key][b], flipped)
+
+    def apply_to_det(self, result):
+        for key in result.get('det_fields', []):
+            raise NotImplementedError
+
+
 class BatchCudaResize(BatchCudaAugBase):
     def __init__(self, spacing=None, scale=None, factor=None, order=1):
         super().__init__()

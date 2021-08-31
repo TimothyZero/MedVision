@@ -210,7 +210,7 @@ class RandomNoise(AugBase):
                  p: float,
                  method: str = 'uniform',
                  mean: float = 0,
-                 std: float = 0.5):
+                 std: float = 0.1):
         super().__init__()
         self.supported = ['normal', 'uniform']
         assert method in self.supported, f"method should be one of {self.supported}"
