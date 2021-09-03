@@ -1,12 +1,12 @@
 import collections
 import random
 
-from .viewer import Display
+from .viewer import CudaDisplay
 
-d = Display()
+d = CudaDisplay()
 
 
-class OneOf(object):
+class CudaOneOf(object):
     def __init__(self, transforms):
         assert isinstance(transforms, collections.abc.Sequence)
         self.latitude = 1.0
@@ -51,7 +51,7 @@ class OneOf(object):
         return item in self.__repr__()
 
 
-class ForwardCompose(object):
+class CudaForwardCompose(object):
     def __init__(self, transforms: (list, tuple)):
         assert isinstance(transforms, collections.abc.Sequence)
         self.latitude = 1.0
@@ -93,7 +93,7 @@ class ForwardCompose(object):
         return item in self.__repr__()
 
 
-class BackwardCompose(object):
+class CudaBackwardCompose(object):
     def __init__(self, transforms):
         assert isinstance(transforms, collections.abc.Sequence)
         self.transforms = []

@@ -144,6 +144,7 @@ class Patches(OperationStage):
         assert fusion_mode in Patches.FUSION.keys()
         self.patch_size = patch_size
         self.overlap = overlap
+        self.pad_mode = 'constant'
         self.fusion_mode = fusion_mode
         self.fusion_fun = Patches.FUSION[fusion_mode]
         self._stride = [p - int(p * overlap) for p in patch_size]
@@ -192,7 +193,7 @@ class Patches(OperationStage):
             pad_size = self.params[-1, self.dim:]
             diff = np.maximum(np.array(pad_size) - np.array(self.image_shape), 0)
             diff = tuple(zip(np.zeros_like(diff), np.array(diff)))
-            tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode='reflect')
+            tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode=self.pad_mode)
 
             patches = []
             for anchor in self.params:
@@ -229,7 +230,7 @@ class Patches(OperationStage):
                 pad_size = self.params[-1, self.dim:]
                 diff = np.maximum(np.array(pad_size) - np.array(self.image_shape), 0)
                 diff = tuple(zip(np.zeros_like(diff), np.array(diff)))
-                tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode='reflect')
+                tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode=self.pad_mode)
 
                 patches = []
                 for anchor in self.params:

@@ -168,6 +168,13 @@ class BatchCudaAugBase(object):
     def forward(self, result: dict):
         return self._post_forward(self._forward(self._pre_forward(result)))
 
+    def multi_forward(self, result: dict):
+        assert self.repeats > 1
+        result['img'] = torch.cat([result['img'], ] * self.repeats)
+        for k in result['seg_fields']:
+            result[k] = torch.cat([result[k], ] * self.repeats)
+        return self.forward(result)
+
     def _pre_backward(self, result: dict):
         time_cost = result['time'].pop()
         last = result['history'].pop()
@@ -202,7 +209,10 @@ class BatchCudaAugBase(object):
     def __call__(self, result: Union[dict, List[dict]], forward=True):
         """return a same type object as input object"""
         if forward:
-            return self.forward(result)
+            if self.repeats > 1:
+                return self.multi_forward(result)
+            else:
+                return self.forward(result)
         else:
             raise NotImplementedError
             # # while using backward, it means result has already been a list of dict

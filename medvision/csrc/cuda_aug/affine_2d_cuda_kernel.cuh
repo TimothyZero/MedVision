@@ -69,8 +69,8 @@ __global__ void affine_2d_forward_cuda_kernel(
         const scalar_t x = roi_start_w + pw * bin_size_w + static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
         // Rotate by theta (counterclockwise) around the center and translate
-        scalar_t ry = y * cosTheta - x * sinTheta + roi_center_h;
-        scalar_t rx = y * sinTheta + x * cosTheta + roi_center_w;
+        scalar_t rx = x * cosTheta - y * sinTheta + roi_center_w;
+        scalar_t ry = x * sinTheta + y * cosTheta + roi_center_h;
         scalar_t val;
         if (order == 0) {
           val = nearest_2d_interpolate<scalar_t>(offset_bottom_data, height, width, ry, rx, index);

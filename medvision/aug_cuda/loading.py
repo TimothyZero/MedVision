@@ -5,10 +5,10 @@ import gc
 import torch
 
 from ..io.imageio import ImageIO
-from .base import AugBase
+from .base import CudaAugBase
 
 
-class LoadPrepare(object):
+class CudaLoadPrepare(object):
     """
     Not a class inherited from Stage. It's used to prepare the format of result.
     """
@@ -35,7 +35,7 @@ class LoadPrepare(object):
         return [result]
         
 
-class LoadImageFromFile(AugBase):
+class CudaLoadImageFromFile(CudaAugBase):
     def __init__(self, to_float16=False):
         super().__init__()
         self.always = True
@@ -65,7 +65,7 @@ class LoadImageFromFile(AugBase):
         return result
 
 
-class LoadAnnotations(AugBase):
+class CudaLoadAnnotations(CudaAugBase):
     def __init__(self,
                  with_cls=False,
                  with_seg=False,
@@ -154,7 +154,7 @@ class LoadAnnotations(AugBase):
         # result['seg_fields'].append('pseudo_mask')
 
 
-class AnnotationMap(AugBase):
+class CudaAnnotationMap(CudaAugBase):
     def __init__(self, mapping: dict, apply_to=('cls', 'det', 'seg')):
         super().__init__()
         self.always = True

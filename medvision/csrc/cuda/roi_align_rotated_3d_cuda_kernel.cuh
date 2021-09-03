@@ -86,14 +86,8 @@ __global__ void roi_align_rotated_3d_forward_cuda_kernel(
         {
           const scalar_t x = roi_start_w + pw * bin_size_w + static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
-          // Rotate by theta (counterclockwise) around the center and translate
-          // only on xy plane
-//          scalar_t rz = z + roi_center_d;
-//          scalar_t ry = y * cosAlpha_z - x * sinAlpha_z + roi_center_h;
-//          scalar_t rx = y * sinAlpha_z + x * cosAlpha_z + roi_center_w;
-
           // https://en.wikipedia.org/wiki/Rotation_matrix
-          // clockwise
+          // counterclockwise
           scalar_t R11 = cosAlpha_z * cosBeta_y;
           scalar_t R12 = cosAlpha_z * sinBeta_y * sinGamma_x - sinAlpha_z * cosGamma_x;
           scalar_t R13 = cosAlpha_z * sinBeta_y * cosGamma_x + sinAlpha_z * sinGamma_x;

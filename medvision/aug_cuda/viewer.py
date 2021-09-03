@@ -8,7 +8,7 @@ from matplotlib.colors import Normalize
 import random
 from imageio import mimsave
 
-from .base import AugBase
+from .base import CudaAugBase
 from ..visulaize import getSeg2D, getBBox2D
 
 
@@ -28,9 +28,9 @@ def ResizeWithAspectRatio(image, width=None, height=None, inter=cv2.INTER_AREA):
     return cv2.resize(image, dim, interpolation=inter)
 
 
-class Display(AugBase):
+class CudaDisplay(CudaAugBase):
     def __init__(self):
-        super(Display, self).__init__()
+        super(CudaDisplay, self).__init__()
         self.p = 1
 
     def _forward(self, result, tab=1):
@@ -60,7 +60,7 @@ class Display(AugBase):
         return self._forward(result)
 
 
-class Viewer(AugBase):
+class CudaViewer(CudaAugBase):
     """
     TODO: multi modality visualization
     support transposed tensor and numpy array

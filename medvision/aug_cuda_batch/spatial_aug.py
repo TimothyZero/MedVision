@@ -284,7 +284,6 @@ class BatchCudaRandomElasticDeformationFast(BatchCudaAugBase):
             out_size = self.image_shape
             spatial_scale = 1
             aligned = True
-            order = self.INTER_ORDER
 
             if self.dim == 2:
                 cuda_fun = affine_2d
@@ -298,19 +297,19 @@ class BatchCudaRandomElasticDeformationFast(BatchCudaAugBase):
                 spatial_scale,
                 1,
                 aligned,
-                order
+                self.INTER_ORDER
             )
             self.tmp_params = offset
 
         toc = time.time()
-        if order == 0:
-            image = image.to(self.img_type)
+        # if order == 0:
+        #     image = image.to(self.img_type)
         if self.dim == 2:
             image = apply_offset_2d(image, self.tmp_params, order=order)
         elif self.dim == 3:
             image = apply_offset_3d(image, self.tmp_params, order=order)
-        if order == 0:
-            image = image.int()
+        # if order == 0:
+        #     image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
         # print("toc2 - toc", toc2 - toc)
@@ -323,7 +322,7 @@ class BatchCudaRandomElasticDeformationFast(BatchCudaAugBase):
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
-            result[key] = self.elastic_transform(result[key], order=0)
+            result[key] = self.elastic_transform(result[key], order=0).int()
 
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
@@ -663,7 +662,7 @@ class BatchCudaCropRandomWithAffine(BatchCudaAugBase):
     def _forward_crop_params(self, result: dict):
         batch_start, batch_end = [], []
         for i in range(self.batch):
-            start = tuple(map(lambda a, da: random.randint(0, a - da), self.image_shape, self.patch_size))
+            start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
             end = tuple(map(lambda a, b: a + b, start, self.patch_size))
             batch_start.append(start[::-1])
             batch_end.append(end[::-1])
@@ -877,7 +876,7 @@ class BatchCudaCropForegroundWithAffine(BatchCudaCropRandomWithAffine):
                         map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
                     end = tuple(map(lambda a, b: a + b, start, self.patch_size))
                 else:
-                    start = tuple(map(lambda a, da: random.randint(0, a - da), self.image_shape, self.patch_size))
+                    start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
                     end = tuple(map(lambda a, b: a + b, start, self.patch_size))
             except Exception as e:
                 raise e

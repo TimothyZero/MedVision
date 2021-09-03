@@ -70,8 +70,8 @@ __global__ void roi_align_rotated_2d_forward_cuda_kernel(
         const scalar_t x = roi_start_w + pw * bin_size_w + static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
         // Rotate by theta (counterclockwise) around the center and translate
-        scalar_t ry = y * cosTheta - x * sinTheta + roi_center_h;
-        scalar_t rx = y * sinTheta + x * cosTheta + roi_center_w;
+        scalar_t rx = x * cosTheta - y * sinTheta + roi_center_w;
+        scalar_t ry = x * sinTheta + y * cosTheta + roi_center_h;
 
         scalar_t val;
         if (order == 0) {
@@ -156,8 +156,8 @@ __global__ void roi_align_rotated_2d_backward_cuda_kernel(
             static_cast<scalar_t>(ix + .5f) * bin_size_w / static_cast<scalar_t>(roi_bin_grid_w);
 
         // Rotate by theta around the center and translate
-        scalar_t ry = y * cosTheta - x * sinTheta + roi_center_h;
-        scalar_t rx = y * sinTheta + x * cosTheta + roi_center_w;
+        scalar_t rx = x * cosTheta - y * sinTheta + roi_center_w;
+        scalar_t ry = x * sinTheta + y * cosTheta + roi_center_h;
 
         scalar_t w1, w2, w3, w4;
         int x0, x1, y0, y1;

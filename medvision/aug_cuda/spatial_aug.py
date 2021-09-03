@@ -11,13 +11,13 @@ import random
 import SimpleITK as sitk
 import scipy.ndimage as ndi
 
-from .base import AugBase
+from .base import CudaAugBase
 from .cuda_fun_tools import affine_2d, affine_3d
 from .cuda_fun_tools import apply_offset_2d, apply_offset_3d
 from .utils import cropBBoxes, clipBBoxes
 
 
-class Resize(AugBase):
+class CudaResize(CudaAugBase):
     def __init__(self, spacing=None, scale=None, factor=None, order=1):
         super().__init__()
         self.always = True
@@ -145,10 +145,11 @@ class Resize(AugBase):
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
             if not all([i == 1.0 for i in self.params]):
-                result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] * np.hstack(self.params[::-1] * 2)
+                scale = torch.from_numpy(np.hstack(self.params[::-1] * 2)).to(result[key].device)
+                result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] * scale
 
 
-class Pad(AugBase):
+class CudaPad(CudaAugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -227,10 +228,11 @@ class Pad(AugBase):
         offsets = [i * ops for i in self.params[::2]][::-1] * 2
         # print(offsets)
         for key in result.get('det_fields', []):
-            result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] + np.array(offsets)
+            offsets = torch.from_numpy(np.array(offsets)).to(result[key].device)
+            result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] + offsets
 
 
-class RandomAffine(AugBase):
+class CudaRandomAffine(CudaAugBase):
     def __init__(self,
                  p,
                  scale: Union[float, list, tuple],  # one axis only
@@ -238,7 +240,10 @@ class RandomAffine(AugBase):
                  rotate: Union[float, list, tuple],  # degree 0-180
                  sampling_ratio=1,
                  order=1):
-        super(RandomAffine, self).__init__()
+        """
+        rotate: The direction of vector rotation is counterclockwise if θ is positive.
+        """
+        super(CudaRandomAffine, self).__init__()
         self.p = p
         self.scale = scale
         self.shift = shift
@@ -370,7 +375,7 @@ class RandomAffine(AugBase):
 
     def apply_to_det(self, result: dict):
         for key in result.get('det_fields', []):
-            bboxes = result[key]
+            bboxes = result[key].cpu().numpy()
             expanded = np.ones((bboxes.shape[0], 2 * self.dim + 2))
             expanded[:, :self.dim] = bboxes[:, :self.dim]
             expanded[:, self.dim + 1:2 * self.dim + 1] = bboxes[:, self.dim:2 * self.dim]
@@ -381,7 +386,6 @@ class RandomAffine(AugBase):
             _rotate = self.params["_rotate"]
             _shape = self.image_shape[::-1]  # already xyz order
             if self.dim == 3:
-                # print(expanded)
                 ShiftM = np.array([
                     [1, 0, 0, _shape[0] * _shifts[0] / _scales[0]],
                     [0, 1, 0, _shape[1] * _shifts[1] / _scales[1]],
@@ -396,14 +400,7 @@ class RandomAffine(AugBase):
                 ])
                 expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
                 expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
-                # print(expanded)
-                # RotateM = np.array([
-                #     [ math.cos(_rotate[0]), math.sin(_rotate[0]), 0, 0.5 * _shape[0] - 0.5 * _shape[0] * math.cos(_rotate[0]) - 0.5 * _shape[1] * math.sin(_rotate[0])],
-                #     [-math.sin(_rotate[0]), math.cos(_rotate[0]), 0, 0.5 * _shape[1] - 0.5 * _shape[1] * math.cos(_rotate[0]) + 0.5 * _shape[0] * math.sin(_rotate[0])],
-                #     [0, 0, 1, 0],
-                #     [0, 0, 0, 1],
-                # ])
-                result[key] = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
+                bboxes = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
             else:
                 ShiftM = np.array([
                     [1, 0, _shape[0] * _shifts[0] / _scales[0]],
@@ -418,20 +415,25 @@ class RandomAffine(AugBase):
                 expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
                 expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
                 # print(expanded)
-                result[key] = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
+                bboxes = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
 
             rotated_bboxes = []
-            for bbox in result[key]:
+            for bbox in bboxes:
                 # print(bbox)
                 if self.dim == 2:
                     selected = [0, 1, 2, 3]
                 else:
                     selected = [0, 1, 3, 4]
-                # print(selected)
+
+                # while doing roi align rotated, we rotate bbox by theta with image fixed.
+                # actually, we fill one by one in output roi array with image rotated by theta,
+                # so to rotate matrix is the same with .cuda script but the angle is reversed
+                angle = - _rotate[0]
+
                 x_min, y_min, x_max, y_max = bbox[selected]
                 x = np.array([x_min, x_max, x_max, x_min]) - 0.5 * _shape[0]
                 y = np.array([y_min, y_min, y_max, y_max]) - 0.5 * _shape[1]
-                angle = _rotate[0]
+
                 x_t = np.cos(angle) * x - np.sin(angle) * y
                 y_t = np.sin(angle) * x + np.cos(angle) * y
                 x_t = x_t + 0.5 * _shape[0]
@@ -442,10 +444,11 @@ class RandomAffine(AugBase):
                 bbox[selected] = [x_min, y_min, x_max, y_max]
 
                 rotated_bboxes.append(bbox)
-            result[key] = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
+            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
+            result[key] = torch.from_numpy(valid_bboxes).to(result[key].device)
 
 
-class RandomScale(RandomAffine):
+class CudaRandomScale(CudaRandomAffine):
     def __init__(self,
                  p,
                  scale: Union[float, list, tuple],
@@ -454,7 +457,7 @@ class RandomScale(RandomAffine):
         super().__init__(p, scale=scale, shift=0, rotate=0, sampling_ratio=sampling_ratio)
 
 
-class RandomShift(RandomAffine):
+class CudaRandomShift(CudaRandomAffine):
     def __init__(self,
                  p,
                  shift: Union[float, list, tuple],
@@ -463,7 +466,7 @@ class RandomShift(RandomAffine):
         super().__init__(p, scale=0, shift=shift, rotate=0, sampling_ratio=sampling_ratio)
 
 
-class RandomRotate(RandomAffine):
+class CudaRandomRotate(CudaRandomAffine):
     def __init__(self,
                  p,
                  rotate: Union[float, list, tuple],
@@ -472,7 +475,7 @@ class RandomRotate(RandomAffine):
         super().__init__(p, scale=0, shift=0, rotate=rotate, sampling_ratio=sampling_ratio)
 
 
-class RandomElasticDeformation(AugBase):
+class CudaRandomElasticDeformation(CudaAugBase):
     def __init__(self, p,
                  num_control_points: Union[int, Tuple[int, int, int]] = 8,
                  max_displacement: float = 0.8):
@@ -550,7 +553,8 @@ class RandomElasticDeformation(AugBase):
         if params is not None:
             self.params = - params
 
-    def elastic_transform(self, image: torch.Tensor, order=1):
+    def elastic_transform_itk(self, image: torch.Tensor, order=1):
+        """ slower but work """
         tic = time.time()
 
         if self.tmp_params is None:
@@ -577,14 +581,20 @@ class RandomElasticDeformation(AugBase):
             offset = torch.from_numpy(offset)
             self.tmp_params = offset
         toc = time.time()
-        if order == 0:
-            image = image.to(self.img_type)
+        # if order == 0:
+        #     image = image.to(self.img_type)
         if self.dim == 2:
-            image = apply_offset_2d(image, self.tmp_params, order=order)
+            image = apply_offset_2d(
+                image.unsqueeze(0),
+                self.tmp_params.unsqueeze(0),
+                order=order).squeeze(0)
         elif self.dim == 3:
-            image = apply_offset_3d(image, self.tmp_params, order=order)
-        if order == 0:
-            image = image.int()
+            image = apply_offset_3d(
+                image.unsqueeze(0),
+                self.tmp_params.unsqueeze(0),
+                order=order).squeeze(0)
+        # if order == 0:
+        #     image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
         # print("toc2 - toc", toc2 - toc)
@@ -592,46 +602,8 @@ class RandomElasticDeformation(AugBase):
         # np.save(f'grid_offset_{self.dim}d.npy', self.params)
         return image
 
-    def apply_to_img(self, result):
-        result['img'] = self.elastic_transform(result['img'])
-
-    def apply_to_seg(self, result):
-        for key in result.get('seg_fields', []):
-            result[key] = self.elastic_transform(result[key], order=0)
-
-    def apply_to_det(self, result):
-        for key in result.get('det_fields', []):
-            new_dets = np.copy(result[key])
-            try:
-                for det in new_dets:
-                    # https://stackoverflow.com/questions/12935194/combinations-between-two-lists
-                    clist = [list(range(i, 2 * self.dim, self.dim)) for i in range(self.dim)]
-                    cord_idx = list(itertools.product(*clist))  # all corners
-                    # print(cord_idx)
-                    # print(det)
-                    transformed_coords = []
-                    for i, idx in enumerate(cord_idx):
-                        voxel = np.int64(det[list(idx)]).reshape(self.dim, -1)
-                        voxel = tuple(voxel[::-1].tolist())
-                        # print(voxel)
-                        voxel_offset = self.tmp_params[(slice(None),) + voxel].cpu().numpy()[::-1, 0]
-                        transformed_coords.append(det[list(idx)] - voxel_offset)
-                    transformed_coords = np.stack(transformed_coords, axis=0)
-                    for i in range(self.dim):
-                        det[i] = np.min(transformed_coords[:, i])
-                        det[i + self.dim] = np.max(transformed_coords[:, i])
-                result[key] = new_dets
-            except Exception as e:
-                print(self.name, result[key])
-                print(self.name, result['history'])
-                raise e
-
-
-class RandomElasticDeformationFast(RandomElasticDeformation):
-    def __init__(self, *args, **kwargs):
-        super(RandomElasticDeformationFast, self).__init__(*args, **kwargs)
-
     def elastic_transform(self, image: torch.Tensor, order=1):
+        """ cubic interpolation to get offset"""
         tic = time.time()
         if self.tmp_params is None:
             # make first dimension is offset on each dim, e.g. 2
@@ -668,8 +640,8 @@ class RandomElasticDeformationFast(RandomElasticDeformation):
             self.tmp_params = offset
 
         toc = time.time()
-        if order == 0:
-            image = image.to(self.img_type)
+        # if order == 0:
+        #     image = image.to(self.img_type)
         if self.dim == 2:
             image = apply_offset_2d(
                 image.unsqueeze(0),
@@ -682,8 +654,8 @@ class RandomElasticDeformationFast(RandomElasticDeformation):
                 self.tmp_params.unsqueeze(0),
                 order=order
             ).squeeze(0)
-        if order == 0:
-            image = image.int()
+        # if order == 0:
+        #     image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
         # print("toc2 - toc", toc2 - toc)
@@ -691,8 +663,42 @@ class RandomElasticDeformationFast(RandomElasticDeformation):
         # np.save(f'fast_grid_offset_{self.dim}d.npy', self.params)
         return image
 
+    def apply_to_img(self, result):
+        result['img'] = self.elastic_transform(result['img'])
 
-class RandomFlip(AugBase):
+    def apply_to_seg(self, result):
+        for key in result.get('seg_fields', []):
+            result[key] = self.elastic_transform(result[key], order=0).int()
+
+    def apply_to_det(self, result):
+        for key in result.get('det_fields', []):
+            new_dets = np.copy(result[key].cpu().numpy())
+            try:
+                for det in new_dets:
+                    # https://stackoverflow.com/questions/12935194/combinations-between-two-lists
+                    clist = [list(range(i, 2 * self.dim, self.dim)) for i in range(self.dim)]
+                    cord_idx = list(itertools.product(*clist))  # all corners
+                    # print(cord_idx)
+                    # print(det)
+                    transformed_coords = []
+                    for i, idx in enumerate(cord_idx):
+                        voxel = np.int64(det[list(idx)]).reshape(self.dim, -1)
+                        voxel = tuple(voxel[::-1].tolist())
+                        # print(voxel)
+                        voxel_offset = self.tmp_params[(slice(None),) + voxel].cpu().numpy()[::-1, 0]
+                        transformed_coords.append(det[list(idx)] - voxel_offset)
+                    transformed_coords = np.stack(transformed_coords, axis=0)
+                    for i in range(self.dim):
+                        det[i] = np.min(transformed_coords[:, i])
+                        det[i + self.dim] = np.max(transformed_coords[:, i])
+                result[key] = torch.from_numpy(new_dets).to(result[key].device)
+            except Exception as e:
+                print(self.name, result[key])
+                print(self.name, result['history'])
+                raise e
+
+
+class CudaRandomFlip(CudaAugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -742,16 +748,16 @@ class RandomFlip(AugBase):
 
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
-            bboxes = np.array(result[key])
+            bboxes = np.array(result[key].cpu().numpy())
             for i, tag in enumerate(self.params[::-1]):  # xyz
                 if tag == -1:
                     bboxes[:, i] = self.image_shape[- i - 1] - bboxes[:, i] - 1
                     bboxes[:, i + self.dim] = self.image_shape[- i - 1] - bboxes[:, i + self.dim] - 1
                     bboxes[:, [i, i + self.dim]] = bboxes[:, [i + self.dim, i]]
-            result[key] = bboxes
+            result[key] = torch.from_numpy(bboxes).to(result[key].device)
 
 
-class CropRandomWithAffine(AugBase):
+class CudaCropRandomWithAffine(CudaAugBase):
     def __init__(self,
                  patch_size,
                  scale: Union[float, list, tuple],  # one axis only
@@ -760,7 +766,7 @@ class CropRandomWithAffine(AugBase):
                  sampling_ratio=1,
                  order=1,
                  times=1):
-        super(CropRandomWithAffine, self).__init__()
+        super(CudaCropRandomWithAffine, self).__init__()
         self.always = True
         self.dim = len(patch_size)
         self.patch_size = patch_size
@@ -786,7 +792,7 @@ class CropRandomWithAffine(AugBase):
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
-        start = tuple(map(lambda a, da: random.randint(0, a - da), self.image_shape, self.patch_size))
+        start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
         end = tuple(map(lambda a, b: a + b, start, self.patch_size))
 
         _scales = [self.get_range(self.scale, 1), ] * self.dim
@@ -890,7 +896,7 @@ class CropRandomWithAffine(AugBase):
 
     def apply_to_det(self, result: dict):
         for key in result.get('det_fields', []):
-            bboxes = result[key]
+            bboxes = result[key].cpu().numpy()
             expanded = np.ones((bboxes.shape[0], 2 * self.dim + 2))
             expanded[:, :self.dim] = bboxes[:, :self.dim]
             expanded[:, self.dim + 1:2 * self.dim + 1] = bboxes[:, self.dim:2 * self.dim]
@@ -902,7 +908,6 @@ class CropRandomWithAffine(AugBase):
             _rotate = self.params["_rotate"]
             _shape = self.patch_size[::-1]
             if self.dim == 3:
-                # print(expanded)
                 ShiftM = np.array([
                     [1, 0, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
                     [0, 1, 0, _shape[1] * _shifts[1] / _scales[1] - start[1]],
@@ -917,14 +922,7 @@ class CropRandomWithAffine(AugBase):
                 ])
                 expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
                 expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
-                # print(expanded)
-                # RotateM = np.array([
-                #     [ math.cos(_rotate[0]), math.sin(_rotate[0]), 0, 0.5 * _shape[0] - 0.5 * _shape[0] * math.cos(_rotate[0]) - 0.5 * _shape[1] * math.sin(_rotate[0])],
-                #     [-math.sin(_rotate[0]), math.cos(_rotate[0]), 0, 0.5 * _shape[1] - 0.5 * _shape[1] * math.cos(_rotate[0]) + 0.5 * _shape[0] * math.sin(_rotate[0])],
-                #     [0, 0, 1, 0],
-                #     [0, 0, 0, 1],
-                # ])
-                result[key] = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
+                bboxes = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
             else:
                 ShiftM = np.array([
                     [1, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
@@ -939,20 +937,21 @@ class CropRandomWithAffine(AugBase):
                 expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
                 expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
                 # print(expanded)
-                result[key] = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
+                bboxes = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
 
             rotated_bboxes = []
-            for bbox in result[key]:
+            for bbox in bboxes:
                 # print(bbox)
                 if self.dim == 2:
                     selected = [0, 1, 2, 3]
                 else:
                     selected = [0, 1, 3, 4]
-                # print(selected)
+                angle = - _rotate[0]
+
                 x_min, y_min, x_max, y_max = bbox[selected]
                 x = np.array([x_min, x_max, x_max, x_min]) - 0.5 * _shape[0]
                 y = np.array([y_min, y_min, y_max, y_max]) - 0.5 * _shape[1]
-                angle = _rotate[0]
+
                 x_t = np.cos(angle) * x - np.sin(angle) * y
                 y_t = np.sin(angle) * x + np.cos(angle) * y
                 x_t = x_t + 0.5 * _shape[0]
@@ -963,14 +962,15 @@ class CropRandomWithAffine(AugBase):
                 bbox[selected] = [x_min, y_min, x_max, y_max]
 
                 rotated_bboxes.append(bbox)
-            result[key] = clipBBoxes(self.dim, np.array(rotated_bboxes), self.patch_size)
+            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
+            result[key] = torch.from_numpy(valid_bboxes).to(result[key].device)
 
 
-class CropRandom(AugBase):
+class CudaCropRandom(CudaAugBase):
     def __init__(self,
                  patch_size=(128, 128),
                  times=1):
-        super(CropRandom, self).__init__()
+        super(CudaCropRandom, self).__init__()
         self.always = True
         self.dim = len(patch_size)
         self.patch_size = patch_size
@@ -991,7 +991,7 @@ class CropRandom(AugBase):
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
-        start = tuple(map(lambda a, da: random.randint(0, a - da), self.image_shape, self.patch_size))
+        start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
         end = tuple(map(lambda a, b: a + b, start, self.patch_size))
         # 2d [(0, 1), (62, 63)]
         # 3d [(0, 1, 2), (62, 63, 64)]
@@ -1009,7 +1009,7 @@ class CropRandom(AugBase):
         result['img'] = cropped
         result['img_shape'] = cropped.shape
         assert cropped.shape[1:] == self.patch_size, \
-            f'Cropped shape is {cropped.shape}, pre shape is {img.shape}'
+            f'Cropped shape is {cropped.shape}, pre shape is {img.shape}, patch shape is {self.patch_size}'
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -1020,10 +1020,12 @@ class CropRandom(AugBase):
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
             start, end = self.params
-            result[key] = cropBBoxes(self.dim, result[key], start[::-1], end[::-1], dim_iou_thr=0.8)
+            bboxes = result[key].cpu().numpy()
+            bboxes = cropBBoxes(self.dim, bboxes, start[::-1], end[::-1], dim_iou_thr=0.8)
+            result[key] = torch.from_numpy(bboxes).to(result[key].device)
 
 
-class CropCenter(CropRandom):
+class CudaCropCenter(CudaCropRandom):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -1038,7 +1040,7 @@ class CropCenter(CropRandom):
         result[self.key_name] = self.params
 
 
-class CropForeground(CropRandom):
+class CudaCropForeground(CudaCropRandom):
     def __init__(self, border=12, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.border = border
@@ -1065,89 +1067,95 @@ class CropForeground(CropRandom):
                 patch_start_max = tuple(
                     [min(max(obj[dim].start - self.border, 0), self.image_shape[dim] - self.patch_size[dim])
                      for dim in range(len(obj))])
-                start = tuple(map(lambda a, da: random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                start = tuple(map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
                 end = tuple(map(lambda a, b: a + b, start, self.patch_size))
                 self.params = [start, end]
                 result[self.key_name] = self.params
             else:
-                CropRandom._forward_params(self, result)
+                CudaCropRandom._forward_params(self, result)
         except Exception as e:
             raise e
             # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
             # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
 
 
-class CropFirstDet(CropRandom):
+class CudaCropFirstDet(CudaCropRandom):
     def __init__(self, patch_size=(128, 128), border=12, *args, **kwargs):
         super().__init__(patch_size, *args, **kwargs)
         self.border = border
 
     def _forward_params(self, result):
-        super(CropFirstDet, self)._init_params(result)
+        super(CudaCropFirstDet, self)._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
         assert 'gt_det' in result.keys(), "it only used for detection tasks"
-        try:
-            obj = result['gt_det'][0]
-            obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
-            patch_start_min = tuple(
-                [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
-                     self.image_shape[dim] - self.patch_size[dim])
-                 for dim in range(len(obj))])
-            patch_start_max = tuple(
-                [min(max(obj[dim].start - self.border, 0),
-                     self.image_shape[dim] - self.patch_size[dim])
-                 for dim in range(len(obj))])
-            start = tuple(
-                map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
-            end = tuple(map(lambda a, b: a + b, start, self.patch_size))
-        except Exception as e:
-            raise e
-            # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
-            # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
-        self.params = [start, end]
-        result[self.key_name] = self.params
+        if len(result['gt_det']) > 0:
+            try:
+                obj = result['gt_det'][0].cpu().numpy()
+                obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
+                patch_start_min = tuple(
+                    [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                patch_start_max = tuple(
+                    [min(max(obj[dim].start - self.border, 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                start = tuple(
+                    map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            except Exception as e:
+                raise e
+                # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
+                # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            self.params = [start, end]
+            result[self.key_name] = self.params
+        else:
+            CudaCropRandom._forward_params(self, result)
 
 
-class CropDet(CropRandom):
+class CudaCropDet(CudaCropRandom):
     def __init__(self, patch_size=(128, 128), border=12, *args, **kwargs):
         super().__init__(patch_size, *args, **kwargs)
         self.border = border
 
     def _forward_params(self, result):
-        super(CropDet, self)._init_params(result)
+        super(CudaCropDet, self)._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
         assert 'gt_det' in result.keys(), "it only used for detection tasks"
-        try:
-            obj = result['gt_det'][random.randint(0, len(result['gt_det']))]
-            obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
-            patch_start_min = tuple(
-                [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
-                     self.image_shape[dim] - self.patch_size[dim])
-                 for dim in range(len(obj))])
-            patch_start_max = tuple(
-                [min(max(obj[dim].start - self.border, 0),
-                     self.image_shape[dim] - self.patch_size[dim])
-                 for dim in range(len(obj))])
-            start = tuple(
-                map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
-            end = tuple(map(lambda a, b: a + b, start, self.patch_size))
-        except Exception as e:
-            raise e
-            # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
-            # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
-        self.params = [start, end]
-        result[self.key_name] = self.params
+        if len(result['gt_det']) > 0:
+            try:
+                bboxes = result['gt_det'].cpu().numpy()
+                obj = bboxes[np.random.randint(0, len(bboxes))]
+                obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
+                patch_start_min = tuple(
+                    [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                patch_start_max = tuple(
+                    [min(max(obj[dim].start - self.border, 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                start = tuple(
+                    map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            except Exception as e:
+                raise e
+                # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
+                # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+            self.params = [start, end]
+            result[self.key_name] = self.params
+        else:
+            CudaCropRandom._forward_params(self, result)
 
 
-FirstDetCrop = CropFirstDet
-
-
-class CropFirstDetOnly(CropFirstDet):
+class CudaCropFirstDetOnly(CudaCropFirstDet):
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
             start, end = self.params
-            result[key] = cropBBoxes(self.dim, result[key][:1, ...], start[::-1], end[::-1], dim_iou_thr=0.8)
+            bboxes = result[key].cpu().numpy()
+            bboxes = cropBBoxes(self.dim, bboxes[:1, ...], start[::-1], end[::-1], dim_iou_thr=0.8)
+            result[key] = torch.from_numpy(bboxes).to(result[key].device)

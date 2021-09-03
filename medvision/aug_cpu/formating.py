@@ -49,6 +49,46 @@ def to_numpy(data):
             type(data)))
 
 
+class ToTensor(Stage):
+    def __init__(self, keys=None):
+        super().__init__()
+        self.keys = keys
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(keys={})'.format(self.keys)
+
+    @property
+    def canBackward(self):
+        return True
+
+    def __call__(self, results, forward=True):
+        if isinstance(results, dict):
+            results = [results]
+
+        if forward:
+            return [self.forward(r) for r in results]
+        else:
+            return [self.backward(r) for r in results]
+
+    def forward(self, results):
+        if self.keys is not None:
+            keys = self.keys
+        else:
+            keys = results.keys()
+        for key in keys:
+            results[key] = to_tensor(results[key])
+        return results
+
+    def backward(self, results):
+        if self.keys is not None:
+            keys = self.keys
+        else:
+            keys = results.keys()
+        for key in keys:
+            results[key] = to_numpy(results[key])
+        return results
+
+
 class Collect(Stage):
     def __init__(self, keys):
         super().__init__()
@@ -66,11 +106,11 @@ class Collect(Stage):
             results = [results]
 
         if forward:
-            return [self._forward(r.copy()) for r in results]
+            return [self.forward(r.copy()) for r in results]
         else:
             return [self.backward(r.copy()) for r in results]
 
-    def _forward(self, results):
+    def forward(self, results):
         _tic_ = time.time()
         data = {}
         img_meta = {}

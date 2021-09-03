@@ -67,7 +67,7 @@ class BatchCudaRandomBlur(BatchCudaAugBase):
         super(BatchCudaRandomBlur, self).__init__()
         self.p = p
         self.sigma = sigma
-        self.truncate = 3.0
+        self.truncate = 2.0
 
     def __repr__(self):
         repr_str = self.__class__.__name__
@@ -80,8 +80,8 @@ class BatchCudaRandomBlur(BatchCudaAugBase):
 
     def _forward_params(self, result):
         self._init_params(result)
-        self.params = self.get_range(self.sigma, always_pos=True)  # [ for _ in range(self.batch)]
-        # self.params = [self.get_range(self.sigma, always_pos=True) for _ in range(self.batch)]
+        # self.params = self.get_range(self.sigma, always_pos=True)
+        self.params = [self.get_range(self.sigma, always_pos=True) for _ in range(self.batch)]
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
@@ -90,32 +90,32 @@ class BatchCudaRandomBlur(BatchCudaAugBase):
 
     def apply_to_img(self, result):
         if self.isForwarding:
-            image = result['img']
+            device = result['img'].device
+            for b in range(self.batch):
+                sigma = max(float(self.params[b]), 0)
+                half_win = min(int(self.truncate * sigma + 0.5), 5)  # save time
+                kernel_size = 2 * half_win + 1
 
-            sigma = max(float(self.params), 0)
-            half_win = int(self.truncate * sigma + 0.5)
-            kernel_size = 2 * half_win + 1
+                # fill pixel or voxel at center [half_win, half_win] or [half_win, half_win, half_win]
+                kernel = np.zeros([kernel_size] * self.dim)
+                kernel[tuple([half_win] * self.dim)] = 1
 
-            # fill pixel or voxel at center [half_win, half_win] or [half_win, half_win, half_win]
-            kernel = np.zeros([kernel_size] * self.dim)
-            kernel[tuple([half_win] * self.dim)] = 1
-
-            kernel = ndi.gaussian_filter(kernel, sigma, mode='constant')
-            kernel = np.stack([kernel] * self.channels)
-            kernel = np.stack([kernel] * self.channels)
-            # filter one by one
-            for i in range(self.channels):
-                for j in range(self.channels):
-                    if i != j:
-                        kernel[i, j] = 0
-            if self.dim == 2:
-                new_image = F.conv2d(image,
-                                     weight=torch.FloatTensor(kernel).type(self.img_type).to(image.device),
-                                     padding=half_win)
-            elif self.dim == 3:
-                new_image = F.conv3d(image,
-                                     weight=torch.FloatTensor(kernel).type(self.img_type).to(image.device),
-                                     padding=half_win)
-            else:
-                raise NotImplementedError
-            result['img'] = new_image
+                kernel = ndi.gaussian_filter(kernel, sigma, mode='constant')
+                kernel = kernel / kernel.sum()
+                kernel = np.stack([kernel] * self.channels)
+                kernel = np.stack([kernel] * self.channels)
+                # filter one by one
+                for i in range(self.channels):
+                    for j in range(self.channels):
+                        if i != j:
+                            kernel[i, j] = 0
+                if self.dim == 2:
+                    result['img'][[b]] = F.conv2d(result['img'][[b]],
+                                                  weight=torch.FloatTensor(kernel).type(self.img_type).to(device),
+                                                  padding=half_win)
+                elif self.dim == 3:
+                    result['img'][[b]] = F.conv3d(result['img'][[b]],
+                                                  weight=torch.FloatTensor(kernel).type(self.img_type).to(device),
+                                                  padding=half_win)
+                else:
+                    raise NotImplementedError

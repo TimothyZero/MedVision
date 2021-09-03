@@ -77,7 +77,7 @@ def test2d(img_path, nearest=False):
                                      [0, 290., 240., 256.0, 256.0, 0.0],
                                  ] * 1000)
     rotated_rois2 = torch.tensor([
-                                     [0, 290., 240., 256.0, 256.0, math.pi * 90.0/180],
+                                     [0, 290., 240., 256.0, 256.0, math.pi * 20.0/180],
                                  ] * 1000)
     call_roi_align_2d(filename + 'RoIAlignRotated.1', RoIAlignRotated, fs, rotated_rois1, nearest=nearest)
     call_roi_align_2d(filename + 'RoIAlignRotated.2', RoIAlignRotated, fs, rotated_rois2, nearest=nearest)
@@ -144,8 +144,8 @@ if __name__ == "__main__":
     os.chdir(__dir__)
 
     # # will save the same images after crop or roi align
-    test2d("../samples/21_training.png")
-    test2d("../samples/21_manual1.png", nearest=True)
+    # test2d("../samples/21_training.png")
+    # test2d("../samples/21_manual1.png", nearest=True)
 
     test3d("../samples/luna16_iso_crop_img.nii.gz")
     test3d("../samples/luna16_iso_crop_lung.nii.gz", nearest=True)

@@ -37,6 +37,6 @@ from .aug_other import Repeat
 from .aug_testtime import Patches, MultiScale, MultiGamma
 from .custom import MultiGammaEns
 from .viewer import Viewer, Display
-from .formating import Collect
+from .formating import ToTensor, Collect
 from .compose import ForwardCompose, OneOf, BackwardCompose
 from .statistic import Property

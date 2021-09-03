@@ -1,36 +1,15 @@
 # -*- coding:utf-8 -*-
-import os
 import time
-import torch
-import numpy as np
-from skimage import io
-from skimage.util import img_as_float32
 
 from medvision.aug_cuda_batch import BatchCudaResize, Display
 from medvision.visulaize import volume2tiled
 
+from load_utils import *
+
 
 def test2d():
-    img_path = "../samples/21_training.png"
-    img_filename = os.path.basename(img_path)
-    img = img_as_float32(io.imread(img_path, as_gray=True))
+    result, img_filename, seg_filename = load_2d_image_with_seg(batch=4)
 
-    seg_path = "../samples/21_manual1.png"
-    seg_filename = os.path.basename(seg_path)
-    seg = img_as_float32(io.imread(seg_path, as_gray=True))
-
-    print('type', img.dtype, 'max', img.max())
-    print('type', seg.dtype, 'max', seg.max())
-
-    img = torch.from_numpy(img).float().unsqueeze(0).unsqueeze(0).cuda()  # batch, channel, *shape
-    seg = torch.from_numpy(seg).float().unsqueeze(0).unsqueeze(0).cuda()
-
-    result = {
-        'img_dim':    2,
-        'img':        torch.cat([img, torch.flip(img, [2])], dim=0),
-        'gt_seg':     torch.cat([seg, torch.flip(seg, [2])], dim=0),
-        'seg_fields': ['gt_seg'],
-    }
     order = 3
     transform = BatchCudaResize(factor=(2.0, 3.0), order=order)
     tic = time.time()
@@ -51,29 +30,7 @@ def test2d():
 
 
 def test3d():
-    import SimpleITK as sitk
-
-    img_path = "../samples/luna16_iso_crop_img.nii.gz"
-    img_filename = os.path.basename(img_path)
-    img = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
-
-    seg_path = "../samples/luna16_iso_crop_lung.nii.gz"
-    seg_filename = os.path.basename(seg_path)
-    seg = sitk.GetArrayFromImage(sitk.ReadImage(seg_path))
-
-    print('type', img.dtype, 'max', img.max())
-    print('type', seg.dtype, 'max', seg.max())
-
-    img = torch.from_numpy(img).float().unsqueeze(0).unsqueeze(0).cuda()
-    seg = torch.from_numpy(seg).float().unsqueeze(0).unsqueeze(0).cuda()
-
-    result = {
-        'img_dim':    3,
-        'img_spacing': (1.0, 1.0, 1.0),
-        'img':        torch.cat([img, torch.flip(img, [2])], dim=0),
-        'gt_seg':     torch.cat([seg, torch.flip(seg, [2])], dim=0),
-        'seg_fields': ['gt_seg'],
-    }
+    result, img_filename, seg_filename = load_3d_image_with_seg(batch=4)
 
     order = 3
     transform = BatchCudaResize(factor=(1.5, 1.5, 1.5), order=order)

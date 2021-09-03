@@ -1,13 +1,14 @@
 # -*- coding:utf-8 -*-
-from .compose import ForwardCompose, BackwardCompose, OneOf
-from .loading import LoadPrepare, LoadImageFromFile, LoadAnnotations, AnnotationMap
-from .spatial_aug import RandomAffine, RandomScale, RandomShift, RandomRotate, \
-    CropRandomWithAffine, \
-    RandomFlip, CropRandom, CropCenter, CropForeground, CropFirstDet, CropFirstDetOnly,\
-    FirstDetCrop, RandomElasticDeformation, RandomElasticDeformationFast, Resize, Pad
-from .intensity_aug import Normalize, MultiNormalize, RandomBlur, RandomNoise
-from .testtime_aug import Patches
-from .formating import Collect
-from .viewer import Display, Viewer
+from .compose import CudaForwardCompose, CudaBackwardCompose, CudaOneOf
+from .loading import CudaLoadPrepare, CudaLoadImageFromFile, CudaLoadAnnotations, CudaAnnotationMap
+from .spatial_aug import CudaRandomAffine, CudaRandomScale, CudaRandomShift, CudaRandomRotate, \
+    CudaCropRandomWithAffine, \
+    CudaRandomFlip, CudaCropRandom, CudaCropCenter, CudaCropForeground, \
+    CudaCropFirstDet, CudaCropDet, CudaCropFirstDetOnly,\
+    CudaRandomElasticDeformation, CudaResize, CudaPad
+from .intensity_aug import CudaNormalize, CudaMultiNormalize, CudaRandomBlur, CudaRandomNoise
+from .testtime_aug import CudaPatches
+from .formating import CudaCollect
+from .viewer import CudaDisplay, CudaViewer
 
 from .cuda_fun_tools import *

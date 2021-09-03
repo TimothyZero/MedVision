@@ -1,6 +1,10 @@
 import collections
 import random
 
+from .viewer import Display
+
+d = Display()
+
 
 class OneOf(object):
     def __init__(self, transforms):
@@ -71,7 +75,7 @@ class ForwardCompose(object):
                 result = t(result)
             except Exception as e:
                 print(t)
-                print(result)
+                d(result)
                 raise e
             if result is None:
                 return None
@@ -109,6 +113,7 @@ class BackwardCompose(object):
                 result = t(result, forward=False)
             except Exception as e:
                 print(t)
+                d(result)
                 raise e
             if result is None:
                 return None

@@ -117,7 +117,7 @@ class DeformConv2d(nn.Module):
             init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input, offset):
-        assert 3 * self.deformable_groups * self.kernel_size[0] * self.kernel_size[1] * self.kernel_size[2] == \
+        assert self.deformable_groups * 2 * self.kernel_size[0] * self.kernel_size[1] == \
                offset.shape[1]
         return deform_conv(input, offset,
                            self.weight,

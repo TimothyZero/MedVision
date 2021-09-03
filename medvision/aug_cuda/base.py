@@ -25,7 +25,7 @@ def get_gpu():
         return f'N/A({str(os.getpid())}-Err:{e})'
 
 
-class AugBase(object):
+class CudaAugBase(object):
     def __init__(self):
         self.p = 0.
         self.latitude = 1.0
@@ -45,10 +45,14 @@ class AugBase(object):
         return 1
 
     @staticmethod
-    def get_range(val_range, bias=0):
+    def get_range(val_range, bias=0, always_pos=False):
         if isinstance(val_range, (int, float)):
-            val_range = [- val_range, val_range]
+            if not always_pos:
+                val_range = [- val_range, val_range]
+            else:
+                val_range = [0, val_range]
         assert isinstance(val_range, (list, tuple)) and len(val_range) == 2
+        assert val_range[1] >= val_range[0]
         return bias + np.random.uniform(*val_range)
         # return bias + val_range
 

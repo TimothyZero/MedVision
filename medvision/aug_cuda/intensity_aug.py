@@ -6,11 +6,11 @@ import torch
 from torch.nn import functional as F
 import scipy.ndimage as ndi
 
-from .base import AugBase
+from .base import CudaAugBase
 from .cuda_fun_tools import random_noise_2d, random_noise_3d
 
 
-class Normalize(AugBase):
+class CudaNormalize(CudaAugBase):
     """
     Normalize the image to [-1.0, 1.0].
 
@@ -65,7 +65,7 @@ class Normalize(AugBase):
             result['img'] = torch.clip(result['img'], -1.0, 1.0)
 
 
-class MultiNormalize(AugBase):
+class CudaMultiNormalize(CudaAugBase):
     """
     Normalize the image to [-1.0, 1.0].
 
@@ -108,8 +108,8 @@ class MultiNormalize(AugBase):
             # [[-128/128, -192/192], [1/128, 1/192]]
             self.params = [[], []]
             for mean, std in zip(params[0], params[1]):
-                r_mean = - np.array(mean) / np.array(std)
-                r_std = 1 / np.array(std)
+                r_mean = - torch.tensor(mean) / torch.tensor(std)
+                r_std = 1 / torch.tensor(std)
                 self.params[0].append(r_mean[0])
                 self.params[1].append(r_std[0])
 
@@ -142,17 +142,17 @@ class MultiNormalize(AugBase):
         #     result['img_shape'] = img.shape
 
 
-class RandomBlur(AugBase):
+class CudaRandomBlur(CudaAugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
     """
 
-    def __init__(self, p, sigma: float):
+    def __init__(self, p, sigma: Union[float, list]):
         super().__init__()
         self.p = p
         self.sigma = sigma
-        self.truncate = 3.0
+        self.truncate = 2.0
 
     def __repr__(self):
         repr_str = self.__class__.__name__
@@ -165,7 +165,7 @@ class RandomBlur(AugBase):
 
     def _forward_params(self, result):
         self._init_params(result)
-        self.params = self.get_range([0, self.sigma])
+        self.params = self.get_range(self.sigma, always_pos=True)
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
@@ -174,7 +174,7 @@ class RandomBlur(AugBase):
 
     def apply_to_img(self, result):
         if self.isForwarding:
-            image = result['img']
+            device = result['img'].device
 
             sigma = float(self.params)
             half_win = int(self.truncate * sigma + 0.5)
@@ -185,6 +185,7 @@ class RandomBlur(AugBase):
             kernel[tuple([half_win] * self.dim)] = 1
 
             kernel = ndi.gaussian_filter(kernel, sigma, mode='constant')
+            kernel = kernel / kernel.sum()
             kernel = np.stack([kernel] * self.channels)
             kernel = np.stack([kernel] * self.channels)
             # filter one by one
@@ -193,19 +194,18 @@ class RandomBlur(AugBase):
                     if i != j:
                         kernel[i, j] = 0
             if self.dim == 2:
-                new_image = F.conv2d(image.unsqueeze(0),
-                                     weight=torch.FloatTensor(kernel).type(self.img_type).to(image.device),
-                                     padding=half_win).squeeze(0)
+                result['img'] = F.conv2d(result['img'].unsqueeze(0),
+                                         weight=torch.FloatTensor(kernel).type(self.img_type).to(device),
+                                         padding=half_win).squeeze(0)
             elif self.dim == 3:
-                new_image = F.conv3d(image.unsqueeze(0),
-                                     weight=torch.FloatTensor(kernel).type(self.img_type).to(image.device),
-                                     padding=half_win).squeeze(0)
+                result['img'] = F.conv3d(result['img'].unsqueeze(0),
+                                         weight=torch.FloatTensor(kernel).type(self.img_type).to(device),
+                                         padding=half_win).squeeze(0)
             else:
                 raise NotImplementedError
-            result['img'] = new_image
 
 
-class RandomNoise(AugBase):
+class CudaRandomNoise(CudaAugBase):
     def __init__(self,
                  p: float,
                  method: str = 'uniform',

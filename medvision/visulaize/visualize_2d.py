@@ -115,7 +115,7 @@ def getSeg2D(image: np.ndarray,
 
     overlay = Normalize(0, 1, clip=True)(overlay)
 
-    colormap = plt.cm.gist_rainbow(overlay)[..., :-1] * mask
+    colormap = plt.cm.winter(overlay)[..., :-1] * mask
 
     out = colormap * alpha + (1 - alpha) * (mask > 0) * image
     out[mask == 0] = image[mask == 0]

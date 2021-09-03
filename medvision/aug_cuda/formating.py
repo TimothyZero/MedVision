@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import time
 
-from .base import AugBase
+from .base import CudaAugBase
 
 
 def to_tensor(data):
@@ -49,7 +49,7 @@ def to_numpy(data):
             type(data)))
 
 
-class Collect(AugBase):
+class CudaCollect(CudaAugBase):
     def __init__(self, keys):
         super().__init__()
         self.keys = keys

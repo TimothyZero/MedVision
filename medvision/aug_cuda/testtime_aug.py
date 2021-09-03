@@ -3,12 +3,12 @@ import torch
 import gc
 import numpy as np
 
-from .base import AugBase
+from .base import CudaAugBase
 from .utils import cropBBoxes, padBBoxes, nmsNd_numpy
 from .cuda_fun_tools import affine_2d, affine_3d
 
 
-class Patches(AugBase):
+class CudaPatches(CudaAugBase):
     """
     ONLY USED IN INFERENCE OR EVALUATION
     support segmentation, detection
@@ -24,12 +24,12 @@ class Patches(AugBase):
 
     def __init__(self, patch_size=(128, 128), overlap=0.5, fusion_mode='max'):
         super().__init__()
-        assert fusion_mode in Patches.FUSION.keys()
+        assert fusion_mode in CudaPatches.FUSION.keys()
         self.always = True
         self.patch_size = patch_size
         self.overlap = overlap
         self.fusion_mode = fusion_mode
-        self.fusion_fun = Patches.FUSION[fusion_mode]
+        self.fusion_fun = CudaPatches.FUSION[fusion_mode]
         self._stride = [p - int(p * overlap) for p in patch_size]
         self._base_anchor = [0] * len(patch_size) + list(patch_size)  # zyx
 
@@ -60,6 +60,10 @@ class Patches(AugBase):
         axes = list(range(1, self.dim + 1)) + [0]
         anchors = np.transpose(anchors, tuple(axes))
         anchors = np.reshape(anchors, [-1, 2 * self.dim])
+        if self.dim == 3:
+            anchors = anchors[:, [2, 1, 0, 5, 4, 3]]
+        else:
+            anchors = anchors[:, [1, 0, 3, 2]]
         self.params = anchors
         result[self.key_name] = self.params
         # print(self.params)
@@ -94,7 +98,7 @@ class Patches(AugBase):
             out_size = self.patch_size
             spatial_scale = 1
             aligned = True
-            ismask = False
+            order = 1
 
             patches = cuda_fun(
                 image.unsqueeze(0),
@@ -103,42 +107,9 @@ class Patches(AugBase):
                 spatial_scale,
                 1,
                 aligned,
-                ismask
+                order
             ).squeeze(0)
             result['img'] = patches
-            # tmp_image = result.pop('img')
-            # pad_size = self.params[-1, self.dim:]
-            # diff = np.maximum(np.array(pad_size) - np.array(self.image_shape), 0)
-            # diff = tuple(zip(np.zeros_like(diff), np.array(diff)))
-            # tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode='reflect')
-            #
-            # patches = []
-            # for anchor in self.params:
-            #     slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
-            #     slices = (slice(None),) + slices
-            #     patches.append(tmp_image[slices])
-            #
-            # result['patches_img'] = np.stack(patches, axis=0)
-            # del patches
-            # del tmp_image
-            # gc.collect()
-            # slices = tuple([slice(lp, shape - rp) for (lp, rp), shape in zip(diff, self.image_shape)])
-            # slices = (slice(None),) + slices
-            # result['img'] = result['img'][slices]
-        # else:
-        #     patches = result.pop('patches_img')
-        #     new_image = - np.ones(self.array_shape) * np.inf
-        #     for p, anchor in enumerate(self.params):
-        #         slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
-        #         slices = (slice(None),) + slices
-        #         target = new_image[slices]
-        #         refined_slices = tuple(slice(0, i) for i in target.shape[1:])
-        #         refined_slices = (slice(None),) + refined_slices
-        #         source = patches[p, ...][refined_slices]
-        #         target = np.where(target == -np.inf, source, target)
-        #         new_image[tuple(slices)] = np.mean(np.array([source, target]), axis=0)
-        #
-        #     result['img'] = new_image
 
     def apply_to_seg(self, result):
         if self.isForwarding:
@@ -164,7 +135,7 @@ class Patches(AugBase):
                 out_size = self.patch_size
                 spatial_scale = 1
                 aligned = True
-                ismask = False
+                order = 0
 
                 patches = cuda_fun(
                     image.unsqueeze(0),
@@ -173,7 +144,7 @@ class Patches(AugBase):
                     spatial_scale,
                     1,
                     aligned,
-                    ismask
+                    order
                 ).squeeze(0)
                 result[key] = patches
 
@@ -197,11 +168,12 @@ class Patches(AugBase):
         if self.isForwarding:
             for key in result.get('det_fields', []):
                 print('\033[31m{}-Warning: Please use Crop instead!\033[0m'.format(self.__class__.__name__))
+                bboxes = result[key].cpu().numpy()
                 patches_bboxes = []
                 for p, anchor in enumerate(self.params):
                     # np array
                     start, end = anchor[:self.dim], anchor[self.dim:]
-                    cropped_bboxes = cropBBoxes(self.dim, result[key], start[::-1], end[::-1], dim_iou_thr=0.7)
+                    cropped_bboxes = cropBBoxes(self.dim, bboxes, start[::-1], end[::-1], dim_iou_thr=0.7)
                     patches_bboxes.append(cropped_bboxes)
                 result['patches_' + key] = patches_bboxes
 
