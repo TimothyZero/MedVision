@@ -757,215 +757,6 @@ class CudaRandomFlip(CudaAugBase):
             result[key] = torch.from_numpy(bboxes).to(result[key].device)
 
 
-class CudaCropRandomWithAffine(CudaAugBase):
-    def __init__(self,
-                 patch_size,
-                 scale: Union[float, list, tuple],  # one axis only
-                 shift: Union[float, list, tuple],
-                 rotate: Union[float, list, tuple],  # degree 0-180
-                 sampling_ratio=1,
-                 order=1,
-                 times=1):
-        super(CudaCropRandomWithAffine, self).__init__()
-        self.always = True
-        self.dim = len(patch_size)
-        self.patch_size = patch_size
-        self.scale = scale
-        self.shift = shift
-        self.rotate = rotate  # temp: only rotate on xy plane
-        self.sampling_ratio = sampling_ratio
-        self.order = order
-        self.times = times
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += "(patch_size={})".format(self.patch_size)
-        return repr_str
-
-    @property
-    def repeats(self):
-        return self.times
-
-    def _forward_params(self, result):
-        self._init_params(result)
-        # print(self.key_name, np.random.get_state()[1][0])
-        assert self.dim == len(self.patch_size)
-        assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
-
-        start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
-        end = tuple(map(lambda a, b: a + b, start, self.patch_size))
-
-        _scales = [self.get_range(self.scale, 1), ] * self.dim
-        _shifts = [self.get_range(self.shift, 0) for _ in range(self.dim)]
-        _rotate = [math.pi * self.get_range(self.rotate, 0) / 180]
-
-        self.params = self.params = {
-            "start": start[::-1],  # xyz
-            "end": end[::-1],
-            "_scales": _scales,
-            "_shifts": _shifts,
-            "_rotate": _rotate
-        }
-        result[self.key_name] = self.params
-
-    def apply_to_img(self, result: dict):
-        if self.dim == 2:
-            cuda_fun = affine_2d
-        else:
-            cuda_fun = affine_3d
-
-        image = result['img']
-        assert image.is_cuda, 'image should be cuda'
-        assert image.ndim == self.dim + 1, 'image should be channel, **dim'
-        device = image.device
-
-        start = torch.FloatTensor(self.params["start"])
-        end = torch.FloatTensor(self.params["end"])
-        _scales = torch.FloatTensor(self.params["_scales"])
-        _shifts = torch.FloatTensor(self.params["_shifts"])
-        _rotate = torch.FloatTensor(self.params["_rotate"])
-
-        index = torch.FloatTensor([0])
-        center = (start + end) / 2
-        shape = end - start
-        if self.dim == 2:
-            angles = torch.FloatTensor([_rotate])
-        else:
-            angles = torch.FloatTensor([0, 0, _rotate])
-
-        rois = torch.cat([index, center - shape * _shifts / _scales, shape / _scales, angles]).unsqueeze(0).to(device)
-        out_size = self.patch_size
-        spatial_scale = 1.0
-        aligned = True
-        order = self.order
-
-        img = cuda_fun(
-            image.unsqueeze(0),
-            rois,
-            out_size,
-            spatial_scale,
-            self.sampling_ratio,
-            aligned,
-            order
-        ).squeeze(0)
-        result['img'] = img
-        result['img_shape'] = tuple(img.shape)
-
-    def apply_to_seg(self, result: dict):
-        if self.dim == 2:
-            cuda_fun = affine_2d
-        else:
-            cuda_fun = affine_3d
-
-        for key in result.get('seg_fields', []):
-            image = result[key]
-            assert image.is_cuda, 'image should be cuda'
-            assert image.ndim == self.dim + 1, 'image should be channel, **dim'
-            device = image.device
-
-            start = torch.FloatTensor(self.params["start"])
-            end = torch.FloatTensor(self.params["end"])
-            _scales = torch.FloatTensor(self.params["_scales"])
-            _shifts = torch.FloatTensor(self.params["_shifts"])
-            _rotate = torch.FloatTensor(self.params["_rotate"])
-
-            index = torch.FloatTensor([0])
-            center = (start + end) / 2
-            shape = end - start
-            if self.dim == 2:
-                angles = torch.FloatTensor([_rotate])
-            else:
-                angles = torch.FloatTensor([0, 0, _rotate])
-
-            rois = torch.cat([index, center - shape * _shifts / _scales, shape / _scales, angles]).unsqueeze(0).to(device)
-            out_size = self.patch_size
-            spatial_scale = 1.0
-            aligned = True
-            order = 0
-
-            img = cuda_fun(
-                image.float().unsqueeze(0),
-                rois,
-                out_size,
-                spatial_scale,
-                self.sampling_ratio,
-                aligned,
-                order
-            ).squeeze(0).int()
-            result[key] = img
-
-    def apply_to_det(self, result: dict):
-        for key in result.get('det_fields', []):
-            bboxes = result[key].cpu().numpy()
-            expanded = np.ones((bboxes.shape[0], 2 * self.dim + 2))
-            expanded[:, :self.dim] = bboxes[:, :self.dim]
-            expanded[:, self.dim + 1:2 * self.dim + 1] = bboxes[:, self.dim:2 * self.dim]
-
-            start = torch.FloatTensor(self.params["start"])
-            end = torch.FloatTensor(self.params["end"])
-            _scales = self.params["_scales"]
-            _shifts = self.params["_shifts"]
-            _rotate = self.params["_rotate"]
-            _shape = self.patch_size[::-1]
-            if self.dim == 3:
-                ShiftM = np.array([
-                    [1, 0, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
-                    [0, 1, 0, _shape[1] * _shifts[1] / _scales[1] - start[1]],
-                    [0, 0, 1, _shape[2] * _shifts[2] / _scales[2] - start[2]],
-                    [0, 0, 0, 1],
-                ])
-                ScaleM = np.array([
-                    [_scales[0], 0, 0, - _shape[0] / 2 * (_scales[0] - 1)],
-                    [0, _scales[1], 0, - _shape[1] / 2 * (_scales[1] - 1)],
-                    [0, 0, _scales[2], - _shape[2] / 2 * (_scales[2] - 1)],
-                    [0, 0, 0, 1],
-                ])
-                expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
-                expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
-                bboxes = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
-            else:
-                ShiftM = np.array([
-                    [1, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
-                    [0, 1, _shape[1] * _shifts[1] / _scales[1] - start[1]],
-                    [0, 0, 1],
-                ])
-                ScaleM = np.array([
-                    [_scales[0], 0, - _shape[0] / 2 * (_scales[0] - 1)],
-                    [0, _scales[1], - _shape[1] / 2 * (_scales[1] - 1)],
-                    [0, 0, 1],
-                ])
-                expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
-                expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
-                # print(expanded)
-                bboxes = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
-
-            rotated_bboxes = []
-            for bbox in bboxes:
-                # print(bbox)
-                if self.dim == 2:
-                    selected = [0, 1, 2, 3]
-                else:
-                    selected = [0, 1, 3, 4]
-                angle = - _rotate[0]
-
-                x_min, y_min, x_max, y_max = bbox[selected]
-                x = np.array([x_min, x_max, x_max, x_min]) - 0.5 * _shape[0]
-                y = np.array([y_min, y_min, y_max, y_max]) - 0.5 * _shape[1]
-
-                x_t = np.cos(angle) * x - np.sin(angle) * y
-                y_t = np.sin(angle) * x + np.cos(angle) * y
-                x_t = x_t + 0.5 * _shape[0]
-                y_t = y_t + 0.5 * _shape[1]
-
-                x_min, x_max = min(x_t), max(x_t)
-                y_min, y_max = min(y_t), max(y_t)
-                bbox[selected] = [x_min, y_min, x_max, y_max]
-
-                rotated_bboxes.append(bbox)
-            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
-            result[key] = torch.from_numpy(valid_bboxes).to(result[key].device)
-
-
 class CudaCropRandom(CudaAugBase):
     def __init__(self,
                  patch_size=(128, 128),
@@ -1159,3 +950,267 @@ class CudaCropFirstDetOnly(CudaCropFirstDet):
             bboxes = result[key].cpu().numpy()
             bboxes = cropBBoxes(self.dim, bboxes[:1, ...], start[::-1], end[::-1], dim_iou_thr=0.8)
             result[key] = torch.from_numpy(bboxes).to(result[key].device)
+
+
+
+
+class CudaCropRandomWithAffine(CudaAugBase):
+    def __init__(self,
+                 patch_size,
+                 scale: Union[float, list, tuple],  # one axis only
+                 shift: Union[float, list, tuple],
+                 rotate: Union[float, list, tuple],  # degree 0-180
+                 sampling_ratio=1,
+                 order=1,
+                 times=1):
+        super(CudaCropRandomWithAffine, self).__init__()
+        self.always = True
+        self.dim = len(patch_size)
+        self.patch_size = patch_size
+        self.scale = scale
+        self.shift = shift
+        self.rotate = rotate  # temp: only rotate on xy plane
+        self.sampling_ratio = sampling_ratio
+        self.order = order
+        self.times = times
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += "(patch_size={})".format(self.patch_size)
+        return repr_str
+
+    @property
+    def repeats(self):
+        return self.times
+
+    def _forward_params(self, result):
+        self._init_params(result)
+        # print(self.key_name, np.random.get_state()[1][0])
+
+        start, end = self._forward_crop_params(result)
+        _scales, _shifts, _rotate = self._forward_affine_params(result)
+
+        self.params = self.params = {
+            "start": start[::-1],  # xyz
+            "end": end[::-1],
+            "_scales": _scales,
+            "_shifts": _shifts,
+            "_rotate": _rotate
+        }
+        result[self.key_name] = self.params
+
+    def _forward_crop_params(self, result):
+        assert self.dim == len(self.patch_size)
+        assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
+
+        start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
+        end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+        return start, end
+
+    def _forward_affine_params(self, result):
+        _scales = [self.get_range(self.scale, 1), ] * self.dim
+        _shifts = [self.get_range(self.shift, 0) for _ in range(self.dim)]
+        _rotate = [math.pi * self.get_range(self.rotate, 0) / 180]
+        return _scales, _shifts, _rotate
+
+    def apply_to_img(self, result: dict):
+        if self.dim == 2:
+            cuda_fun = affine_2d
+        else:
+            cuda_fun = affine_3d
+
+        image = result['img']
+        assert image.is_cuda, 'image should be cuda'
+        assert image.ndim == self.dim + 1, 'image should be channel, **dim'
+        device = image.device
+
+        start = torch.FloatTensor(self.params["start"])
+        end = torch.FloatTensor(self.params["end"])
+        _scales = torch.FloatTensor(self.params["_scales"])
+        _shifts = torch.FloatTensor(self.params["_shifts"])
+        _rotate = torch.FloatTensor(self.params["_rotate"])
+
+        index = torch.FloatTensor([0])
+        center = (start + end) / 2
+        shape = end - start
+        if self.dim == 2:
+            angles = torch.FloatTensor([_rotate])
+        else:
+            angles = torch.FloatTensor([0, 0, _rotate])
+
+        rois = torch.cat([index, center - shape * _shifts / _scales, shape / _scales, angles]).unsqueeze(0).to(device)
+        out_size = self.patch_size
+        spatial_scale = 1.0
+        aligned = True
+        order = self.order
+
+        img = cuda_fun(
+            image.unsqueeze(0),
+            rois,
+            out_size,
+            spatial_scale,
+            self.sampling_ratio,
+            aligned,
+            order
+        ).squeeze(0)
+        result['img'] = img
+        result['img_shape'] = tuple(img.shape)
+
+    def apply_to_seg(self, result: dict):
+        if self.dim == 2:
+            cuda_fun = affine_2d
+        else:
+            cuda_fun = affine_3d
+
+        for key in result.get('seg_fields', []):
+            image = result[key]
+            assert image.is_cuda, 'image should be cuda'
+            assert image.ndim == self.dim + 1, 'image should be channel, **dim'
+            device = image.device
+
+            start = torch.FloatTensor(self.params["start"])
+            end = torch.FloatTensor(self.params["end"])
+            _scales = torch.FloatTensor(self.params["_scales"])
+            _shifts = torch.FloatTensor(self.params["_shifts"])
+            _rotate = torch.FloatTensor(self.params["_rotate"])
+
+            index = torch.FloatTensor([0])
+            center = (start + end) / 2
+            shape = end - start
+            if self.dim == 2:
+                angles = torch.FloatTensor([_rotate])
+            else:
+                angles = torch.FloatTensor([0, 0, _rotate])
+
+            rois = torch.cat([index, center - shape * _shifts / _scales, shape / _scales, angles]).unsqueeze(0).to(device)
+            out_size = self.patch_size
+            spatial_scale = 1.0
+            aligned = True
+            order = 0
+
+            img = cuda_fun(
+                image.float().unsqueeze(0),
+                rois,
+                out_size,
+                spatial_scale,
+                self.sampling_ratio,
+                aligned,
+                order
+            ).squeeze(0).int()
+            result[key] = img
+
+    def apply_to_det(self, result: dict):
+        for key in result.get('det_fields', []):
+            bboxes = result[key].cpu().numpy()
+            expanded = np.ones((bboxes.shape[0], 2 * self.dim + 2))
+            expanded[:, :self.dim] = bboxes[:, :self.dim]
+            expanded[:, self.dim + 1:2 * self.dim + 1] = bboxes[:, self.dim:2 * self.dim]
+
+            start = torch.FloatTensor(self.params["start"])
+            end = torch.FloatTensor(self.params["end"])
+            _scales = self.params["_scales"]
+            _shifts = self.params["_shifts"]
+            _rotate = self.params["_rotate"]
+            _shape = self.patch_size[::-1]
+            if self.dim == 3:
+                ShiftM = np.array([
+                    [1, 0, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
+                    [0, 1, 0, _shape[1] * _shifts[1] / _scales[1] - start[1]],
+                    [0, 0, 1, _shape[2] * _shifts[2] / _scales[2] - start[2]],
+                    [0, 0, 0, 1],
+                ])
+                ScaleM = np.array([
+                    [_scales[0], 0, 0, - _shape[0] / 2 * (_scales[0] - 1)],
+                    [0, _scales[1], 0, - _shape[1] / 2 * (_scales[1] - 1)],
+                    [0, 0, _scales[2], - _shape[2] / 2 * (_scales[2] - 1)],
+                    [0, 0, 0, 1],
+                ])
+                expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
+                expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
+                bboxes = np.concatenate([expanded[:, [0, 1, 2, 4, 5, 6]], bboxes[:, -2:]], axis=1)
+            else:
+                ShiftM = np.array([
+                    [1, 0, _shape[0] * _shifts[0] / _scales[0] - start[0]],
+                    [0, 1, _shape[1] * _shifts[1] / _scales[1] - start[1]],
+                    [0, 0, 1],
+                ])
+                ScaleM = np.array([
+                    [_scales[0], 0, - _shape[0] / 2 * (_scales[0] - 1)],
+                    [0, _scales[1], - _shape[1] / 2 * (_scales[1] - 1)],
+                    [0, 0, 1],
+                ])
+                expanded[:, :self.dim + 1] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, :self.dim + 1].T).T
+                expanded[:, self.dim + 1:] = np.matmul(np.matmul(ScaleM, ShiftM), expanded[:, self.dim + 1:].T).T
+                # print(expanded)
+                bboxes = np.concatenate([expanded[:, [0, 1, 3, 4]], bboxes[:, -2:]], axis=1)
+
+            rotated_bboxes = []
+            for bbox in bboxes:
+                # print(bbox)
+                if self.dim == 2:
+                    selected = [0, 1, 2, 3]
+                else:
+                    selected = [0, 1, 3, 4]
+                angle = - _rotate[0]
+
+                x_min, y_min, x_max, y_max = bbox[selected]
+                x = np.array([x_min, x_max, x_max, x_min]) - 0.5 * _shape[0]
+                y = np.array([y_min, y_min, y_max, y_max]) - 0.5 * _shape[1]
+
+                x_t = np.cos(angle) * x - np.sin(angle) * y
+                y_t = np.sin(angle) * x + np.cos(angle) * y
+                x_t = x_t + 0.5 * _shape[0]
+                y_t = y_t + 0.5 * _shape[1]
+
+                x_min, x_max = min(x_t), max(x_t)
+                y_min, y_max = min(y_t), max(y_t)
+                bbox[selected] = [x_min, y_min, x_max, y_max]
+
+                rotated_bboxes.append(bbox)
+            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
+            result[key] = torch.from_numpy(valid_bboxes).to(result[key].device)
+
+
+class CudaCropCenterWithAffine(CudaCropRandomWithAffine):
+    def _forward_crop_params(self, result):
+        assert self.dim == len(self.patch_size)
+        assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
+
+        start = tuple(map(lambda a, da: a // 2 - da // 2, self.image_shape, self.patch_size))
+        end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+        return start, end
+
+
+class CudaCropFirstDetWithAffine(CudaCropRandomWithAffine):
+    def __init__(self, border=12, *args, **kwargs):
+        self.border = border
+        super(CudaCropFirstDetWithAffine, self).__init__(*args, **kwargs)
+
+    def _forward_crop_params(self, result):
+        assert self.dim == len(self.patch_size)
+        assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
+
+        assert 'gt_det' in result.keys(), "it only used for detection tasks"
+        if len(result['gt_det']) > 0:
+            try:
+                obj = result['gt_det'][0].cpu().numpy()
+                obj = [slice(obj[self.dim - i - 1], obj[2 * self.dim - i - 1]) for i in range(self.dim)]
+                patch_start_min = tuple(
+                    [min(max(obj[dim].stop + self.border - self.patch_size[dim], 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                patch_start_max = tuple(
+                    [min(max(obj[dim].start - self.border, 0),
+                         self.image_shape[dim] - self.patch_size[dim])
+                     for dim in range(len(obj))])
+                start = tuple(
+                    map(lambda a, da: np.random.randint(min(a, da), max(a, da) + 1), patch_start_min, patch_start_max))
+                end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+                return start, end
+            except Exception as e:
+                raise e
+                # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
+                # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
+        else:
+            return super(CudaCropFirstDetWithAffine, self)._forward_crop_params(result)
+

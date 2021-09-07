@@ -24,6 +24,9 @@ def affine_2d(features,
     assert features.dtype in [torch.float32, torch.float16], \
         f'input must be float16 or float32 nut get {features.dtype}'
     assert order in [0, 1, 3], f'order {order} is not supported!'
+    if order == 0:
+        # avoid sample average
+        sampling_ratio = 1
 
     batch_size, num_channels, data_height, data_width = features.size()
     num_rois = rois.size(0)
@@ -66,6 +69,9 @@ def affine_3d(features,
     assert features.dtype in [torch.float32, torch.float16], \
         f'input must be float16 or float32 nut get {features.dtype}'
     assert order in [0, 1, 3], f'order {order} is not supported!'
+    if order == 0:
+        # avoid sample average
+        sampling_ratio = 1
 
     batch_size, num_channels, data_depth, data_height, data_width = features.size()
     num_rois = rois.size(0)

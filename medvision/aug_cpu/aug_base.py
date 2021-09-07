@@ -80,8 +80,9 @@ class Stage(object):
             result['history'] = []
         if 'time' not in result.keys():
             result['time'] = []
+        _start = datetime.fromtimestamp(self._tic_).strftime('%H:%M:%S.%f')
         result['history'].append(self.name)
-        result['time'].append(f"{self.name}-{time.time() - self._tic_:.03f}s")
+        result['time'].append(f"{self.name}-{_start}-{time.time() - self._tic_:.03f}s")
         self._check_types(result)
         gc.collect()
         return result

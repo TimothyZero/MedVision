@@ -192,6 +192,7 @@ class RoIAlign(nn.Module):
 
     def forward(self, features, rois, order=1):
         assert order in [0, 1], "only support order = 0 (nearest) or 1 (linear)"
+        sampling_ratio = 1 if order == 0 else self.sampling_ratio
         return self.roi_align(features, rois, self.output_size,
                               self.spatial_scale,
-                              self.sampling_ratio, order)
+                              sampling_ratio, order)

@@ -66,6 +66,7 @@ export PATH="path_to/gcc-5.4+/bin/:$PATH"
 export CUDA_HOME="/path_to/cuda-9.0+"
 
 git clone https://github.com/TimothyZero/MedVision
+cd MedVision
 python setup.py develop  # recommended
 # or
 pip install -e .  # -e : editable, sometimes may cause cpu 100%

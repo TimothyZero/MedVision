@@ -120,9 +120,9 @@ class CudaAugBase(object):
         assert isinstance(result, dict), f'A dict is required but got a {type(result)}!'
         self._debug_ = result.get('_debug_', False)
         self._tic_ = time.time()
-        gc.collect()
-        torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats()
+        # gc.collect()
+        # torch.cuda.empty_cache()
+        # torch.cuda.reset_peak_memory_stats()
         return result
 
     def _forward(self, result: dict):
@@ -142,6 +142,8 @@ class CudaAugBase(object):
 
     def _post_forward(self, result: dict):
         assert isinstance(result, dict), f'A dict is required but got a {type(result)}!'
+        # gc.collect()
+        # torch.cuda.empty_cache()
         if 'history' not in result.keys():
             result['history'] = []
         if 'time' not in result.keys():
@@ -151,10 +153,8 @@ class CudaAugBase(object):
         _start = datetime.fromtimestamp(self._tic_).strftime('%H:%M:%S.%f')
         _memory = torch.cuda.max_memory_allocated() / 1024 /1024 / 8
         result['history'].append(self.name)
+        result['memory'].append(f"{self.name}-{_memory:.02f}MB")
         result['time'].append(f"{self.name}-{_start}-{time.time() - self._tic_:.03f}s")
-        result['memory'].append(f"{self.name}-{get_gpu()}-{_memory:.02f}MB")
-        gc.collect()
-        torch.cuda.empty_cache()
         return result
 
     def forward(self, result: dict):

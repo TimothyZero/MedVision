@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-
+from datetime import datetime
 import numpy as np
 import torch
 import time
@@ -121,9 +121,10 @@ class Collect(Stage):
                 data[key] = to_tensor(results.pop(key))
         for key in results.keys():
             img_meta[key] = results[key]
+        _start = datetime.fromtimestamp(_tic_).strftime('%H:%M:%S.%f')
         data['img_meta'] = img_meta
         data['img_meta']['history'].append(self.name)
-        data['img_meta']['time'].append(f'{self.name}-{time.time() - _tic_:.03f}s')
+        data['img_meta']['time'].append(f'{self.name}-{_start}-{time.time() - _tic_:.03f}s')
 
         return data
 

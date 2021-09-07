@@ -9,7 +9,7 @@ from medvision.ops import DeformRoIPooling2dPack, ModulatedDeformRoIPooling2dPac
 
 
 def test_2d():
-    x_2d = torch.rand((1, 3, 16, 16), requires_grad=True).cuda()
+    x_2d = torch.rand((1, 3, 16, 16)).cuda()
     seg = torch.ones((1, 16, 16, 16)).cuda()
     loss = torch.nn.BCEWithLogitsLoss()
 
@@ -38,7 +38,7 @@ def test_2d():
 
 def test_3d():
 
-    x_3d = torch.rand((1, 3, 5, 5, 5), requires_grad=True).cuda()
+    x_3d = torch.rand((1, 3, 5, 5, 5)).cuda()
     seg = torch.ones((1, 7, 5, 5, 5)).cuda()
     loss = torch.nn.BCEWithLogitsLoss()
 

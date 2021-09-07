@@ -6,40 +6,40 @@ Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and N
 
 ### Supported CUDA Operators
 
-Methods                | Torch | Cuda |  Cpu | FP16
----|---|---|---|---
-RoI Align              | 2/3D  | 2/3D |      |  yes
-RoI Align Rotated      |       | 2/3D |      |  yes
-BBox overlaps          | 2/3D  | 2/3D |      |  yes
-NMS                    | 2/3D  | 2/3D |      |  yes
-soft-NMS               | 2/3D  |      | 2D   |  yes
-DCN v1                 |       | 2/3D |      |  yes 
-DCN v2                 |       | 2/3D |      |  yes
-Deformable RoI Pooling |       | 2D   |      |  yes
+| Methods                | Torch | Cuda | Cpu  | FP16 |
+| ---------------------- | ----- | ---- | ---- | ---- |
+| RoI Align              | 2/3D  | 2/3D |      | yes  |
+| RoI Align Rotated      |       | 2/3D |      | yes  |
+| BBox overlaps          | 2/3D  | 2/3D |      | yes  |
+| NMS                    | 2/3D  | 2/3D |      | yes  |
+| soft-NMS               | 2/3D  |      | 2D   | yes  |
+| DCN v1                 |       | 2/3D |      | yes  |
+| DCN v2                 |       | 2/3D |      | yes  |
+| Deformable RoI Pooling |       | 2D   |      | yes  |
 
 
 ***Torch** : implemented with torch functions.*
 
 
 ### Supported CUDA Augmentations
-Methods             | Cuda  | FP16
----|---|---
-RandomAffine        | 2/3D  | yes
-RandomScale         | 2/3D  | yes
-RandomShift         | 2/3D  | yes
-RandomRotate        | 2/3D  | yes
-RandomFlip          | 2/3D  | yes
-CropRandom +        | 2/3D  | yes
-RandomElasticDeformation   | 2/3D  | yes
-Resize              | 2/3D  | yes
-Pad                 | 2/3D  | yes
-Normalize +         | 2/3D  | yes
-RandomBlur          | 2/3D  | yes
-RandomNoise         | 2/3D  | yes
-Display             | 2/3D  | yes
-Viewer              | 2/3D  | yes
+| Methods                  | Cuda | FP16 | Ops               |
+| ------------------------ | ---- | ---- | ----------------- |
+| RandomAffine             | 2/3D | yes  | RoI Align Rotated |
+| RandomScale              | 2/3D | yes  | RoI Align Rotated |
+| RandomShift              | 2/3D | yes  | RoI Align Rotated |
+| RandomRotate             | 2/3D | yes  | RoI Align Rotated |
+| RandomFlip               | 2/3D | yes  |                   |
+| CropRandom Series        | 2/3D | yes  | RoI Align Rotated |
+| RandomElasticDeformation | 2/3D | yes  | DCN               |
+| Resize                   | 2/3D | yes  | RoI Align Rotated |
+| Pad                      | 2/3D | yes  |                   |
+| Normalize +              | 2/3D | yes  |                   |
+| RandomBlur               | 2/3D | yes  | Conv              |
+| RandomNoise              | 2/3D | yes  |                   |
+| Display                  | 2/3D | yes  |                   |
+| Viewer                   | 2/3D | yes  |                   |
 
-**All of these should support forward and backward (need test).**
+**All of these will support forward and backward (need test).**
 
 
 ### TODO
@@ -50,12 +50,16 @@ Viewer              | 2/3D  | yes
 ### Installation
 
 ```shell
-# maybe
+# run and check you cuda and torch
+# make sure your torch.version.cuda == cuda_home_version
+python -m torch.utils.collect_env
+
+# if needed
 export PATH="path_to/gcc-5.4+/bin/:$PATH"
 export CUDA_HOME="/path_to/cuda-9.0+"
-# make sure your torch.version.cuda == cuda_home_version
 
 git clone https://github.com/TimothyZero/MedVision
+cd MedVision
 python setup.py develop  # recommended
 # or
 pip install -e .  # -e : editable, sometimes may cause cpu 100%
