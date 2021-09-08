@@ -36,6 +36,10 @@ class CudaAugBase(object):
         self.name = self.__class__.__name__
         self.key_name = self.name + '_params'  # dict key name saving in result
 
+    def __repr__(self):
+        repr_str = self.__class__.__name__ + '()'
+        return repr_str
+
     @property
     def canBackward(self):
         return False
@@ -151,7 +155,7 @@ class CudaAugBase(object):
         if 'memory' not in result.keys():
             result['memory'] = []
         _start = datetime.fromtimestamp(self._tic_).strftime('%H:%M:%S.%f')
-        _memory = torch.cuda.max_memory_allocated() / 1024 /1024 / 8
+        _memory = torch.cuda.max_memory_allocated() / 1024 / 1024 / 8
         result['history'].append(self.name)
         result['memory'].append(f"{self.name}-{_memory:.02f}MB")
         result['time'].append(f"{self.name}-{_start}-{time.time() - self._tic_:.03f}s")

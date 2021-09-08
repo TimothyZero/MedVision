@@ -3,7 +3,7 @@ import math
 import time
 import warnings
 import itertools
-from typing import Union, Iterable, Tuple, List
+from typing import Union, Tuple
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -12,9 +12,9 @@ import SimpleITK as sitk
 import scipy.ndimage as ndi
 
 from .base import CudaAugBase
-from .cuda_fun_tools import affine_2d, affine_3d
-from .cuda_fun_tools import apply_offset_2d, apply_offset_3d
 from .utils import cropBBoxes, clipBBoxes
+from ..ops.cuda_fun_tools import affine_2d, affine_3d
+from ..ops.cuda_fun_tools import apply_offset_2d, apply_offset_3d
 
 
 class CudaResize(CudaAugBase):
@@ -59,7 +59,8 @@ class CudaResize(CudaAugBase):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d (2.0, 2.0)
             # 3d (2.0, 2.0, 2.0)

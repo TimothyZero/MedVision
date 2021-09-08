@@ -16,14 +16,15 @@ import gc
 from copy import deepcopy
 import numpy as np
 
-from .aug_base import OperationStage
+from .base import AugBase
 from .aug_spatial import Pad, Resize
 from .utils import cropBBoxes, padBBoxes, nmsNd_numpy
 
 
-class MultiScale(OperationStage):
+class MultiScale(AugBase):
     def __init__(self, scales):
         super().__init__()
+        self.always = True
         self.scales = scales.copy()
         self.tmp_scales = scales.copy()
         assert isinstance(scales, (list, tuple))
@@ -37,7 +38,7 @@ class MultiScale(OperationStage):
         return len(self.scales)
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         # after a whole repeats of transform, self.tmp_img_scales will be a empty list
         # recover it from a copy of self.img_scales before new data
         if len(self.tmp_scales) == 0:
@@ -52,7 +53,8 @@ class MultiScale(OperationStage):
         result[self.key_name] = scales
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             self.params = tuple(1 / np.array(params))
 
@@ -80,9 +82,10 @@ class MultiScale(OperationStage):
         return repr_str
 
 
-class MultiGamma(OperationStage):
+class MultiGamma(AugBase):
     def __init__(self, gammas: list):
         super().__init__()
+        self.always = True
         assert min(gammas) > -1.0 and max(gammas) < 1.0
         self.gammas = gammas.copy()
         self.tmp_gammas = gammas.copy()
@@ -101,7 +104,7 @@ class MultiGamma(OperationStage):
         return len(self.gammas)
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if len(self.tmp_gammas) == 0:
             self.tmp_gammas = self.gammas.copy()
         gamma = tuple([self.tmp_gammas.pop(0) + 1] * self.channels)
@@ -109,7 +112,8 @@ class MultiGamma(OperationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = tuple([1 / p for p in params])
 
@@ -125,7 +129,7 @@ class MultiGamma(OperationStage):
         result['img'] = new_image
 
 
-class Patches(OperationStage):
+class Patches(AugBase):
     """
     ONLY USED IN INFERENCE OR EVALUATION
     support segmentation, detection
@@ -141,6 +145,7 @@ class Patches(OperationStage):
 
     def __init__(self, patch_size=(128, 128), overlap=0.5, fusion_mode='max'):
         super().__init__()
+        self.always = True
         assert fusion_mode in Patches.FUSION.keys()
         self.patch_size = patch_size
         self.overlap = overlap
@@ -161,7 +166,7 @@ class Patches(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         assert len(self.patch_size) == self.dim
         shape = self.image_shape
         # print(shape)
@@ -183,7 +188,8 @@ class Patches(OperationStage):
         # print(len(self.params))
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = np.array(params)
 
@@ -288,3 +294,14 @@ class Patches(OperationStage):
                     dets = dets[k]
                     # print(dets)
                 result[key] = dets
+
+
+class Repeat(AugBase):
+    def __init__(self, times):
+        super().__init__()
+        self.always = True
+        self.times = times
+
+    @property
+    def repeats(self):
+        return self.times

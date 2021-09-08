@@ -1,32 +1,28 @@
 from collections import Iterable
 from typing import Union, List, Tuple
-import operator
 import numpy as np
 from functools import partial
 from scipy import ndimage as ndi
 import cv2
 import random
-from skimage.morphology import skeletonize
-from scipy.ndimage.morphology import grey_dilation, grey_erosion, grey_closing, grey_opening, distance_transform_edt
-from scipy.ndimage.morphology import binary_dilation, binary_erosion, binary_closing, binary_opening
 
-from .utils import getSphere, clipBBoxes
-from .aug_base import OperationStage, AugmentationStage
+from .utils import clipBBoxes
+from .base import AugBase
 
 
 # -------------- channel aug_cuda --------------- #
 
-class RGB2Gray(OperationStage):
-    def __repr__(self):
-        repr_str = self.__class__.__name__ + "()"
-        return repr_str
+class RGB2Gray(AugBase):
+    def __init__(self):
+        super().__init__()
+        self.always = True
 
     @property
     def canBackward(self):
         return True
 
     def _backward_params(self, result):
-        super()._backward_params(result)
+        self._init_params(result)
         self.params = True
 
     def apply_to_img(self, result):
@@ -41,17 +37,17 @@ class RGB2Gray(OperationStage):
         return result
 
 
-class Gray2RGB(OperationStage):
-    def __repr__(self):
-        repr_str = self.__class__.__name__ + "()"
-        return repr_str
+class Gray2RGB(AugBase):
+    def __init__(self):
+        super().__init__()
+        self.always = True
 
     @property
     def canBackward(self):
         return True
 
     def _backward_params(self, result):
-        super()._backward_params(result)
+        self._init_params(result)
         self.params = True
 
     def apply_to_img(self, result):
@@ -66,9 +62,10 @@ class Gray2RGB(OperationStage):
         return result
 
 
-class ChannelSelect(OperationStage):
+class ChannelSelect(AugBase):
     def __init__(self, index: (list, tuple, int)):
         super().__init__()
+        self.always = True
         if isinstance(index, (int, float)):
             index = [int(index)]
         self.index = index
@@ -84,12 +81,13 @@ class ChannelSelect(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         self.params = tuple([self.index, self.channels])
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             self.params = params
 
@@ -105,9 +103,10 @@ class ChannelSelect(OperationStage):
         return result
 
 
-class AnnotationMap(OperationStage):
+class AnnotationMap(AugBase):
     def __init__(self, mapping: dict):
         super().__init__()
+        self.always = True
         self.mapping = mapping
         assert isinstance(self.mapping, dict)
         assert all([isinstance(i, int) for i in self.mapping.keys()])
@@ -125,12 +124,13 @@ class AnnotationMap(OperationStage):
         return flag
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         self.params = self.mapping.copy()
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         self.params = dict((v, k) for k, v in params.items())
 
     def apply_to_cls(self, result):
@@ -156,7 +156,7 @@ class AnnotationMap(OperationStage):
 # -------------- normalization --------------- #
 
 
-class Normalize(OperationStage):
+class Normalize(AugBase):
     """
     Normalize the image to [-1.0, 1.0].
 
@@ -171,6 +171,7 @@ class Normalize(OperationStage):
 
     def __init__(self, mean, std, clip=True):
         super().__init__()
+        self.always = True
         self.mean = mean
         self.std = std
         self.clip = clip
@@ -185,13 +186,14 @@ class Normalize(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         # 3 channel [(128, 128, 128), (128, 128, 128)]
         self.params = [tuple(self.mean), tuple(self.std)]
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             # [(-1, -1, -1), (1/128, 1/128, 1/128)]
             r_mean = - np.array(params[0]) / np.array(params[1])
@@ -209,7 +211,7 @@ class Normalize(OperationStage):
             result['img'] = np.clip(result['img'], -1.0, 1.0)
 
 
-class MultiNormalize(OperationStage):
+class MultiNormalize(AugBase):
     """
     Normalize the image to [-1.0, 1.0].
 
@@ -224,6 +226,7 @@ class MultiNormalize(OperationStage):
 
     def __init__(self, means, stds, clip=True):
         super().__init__()
+        self.always = True
         self.means = means
         self.stds = stds
         self.clip = clip
@@ -239,13 +242,14 @@ class MultiNormalize(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         # [[(128, ), (192, )], [(128, ), (192, )]]
         self.params = [self.means, self.stds]
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             # [[-128/128, -192/192], [1/128, 1/192]]
             self.params = [[], []]
@@ -281,12 +285,13 @@ class MultiNormalize(OperationStage):
             result['img_shape'] = img.shape
 
 
-class AutoNormalize(OperationStage):
+class AutoNormalize(AugBase):
     """Normalize the image to [-1.0, 1.0].
     """
 
     def __init__(self, method='norm', clip=False):
         super().__init__()
+        self.always = True
         self.method = method
         self.clip = clip
         assert method in ['norm', 'minmax'], "method is one of ['norm', 'minmax']"
@@ -301,7 +306,7 @@ class AutoNormalize(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if self.method == 'norm':
             mean = np.mean(result['img'], axis=self.image_axes)
             std = np.std(result['img'], axis=self.image_axes)
@@ -317,7 +322,8 @@ class AutoNormalize(OperationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             r_mean = - np.array(params[0]) / np.array(params[1])
             r_std = 1 / np.array(params[1])
@@ -335,295 +341,17 @@ class AutoNormalize(OperationStage):
         result['img'] = img
 
 
-# ------------- morphology ---------------- #
-
-
-class ImageErosion(OperationStage):
-    """
-    support segmentation,  and classification tasks
-    support 2D and 3D images
-    """
-
-    def __init__(self, kernel, isDark=False):
-        super().__init__()
-        self.kernel = kernel
-        self.ops = operator.ne if isDark else operator.eq
-        self.tag = 0 if isDark else 1
-        # print(self.tag, self.ops)
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(kernel={})'.format(self.kernel)
-        return repr_str
-
-    @property
-    def canBackward(self):
-        return True
-
-    def _forward_params(self, result):
-        super()._forward_params(result)
-        self.params = np.expand_dims(getSphere(self.dim, self.kernel, self.kernel), 0)
-
-    def apply_to_img(self, result):
-        result['img'] = grey_erosion(result['img'], footprint=self.params)
-        # result['img_fields'].append('img_erosion')
-
-    def apply_to_seg(self, result):
-        for key in result['seg_fields']:
-            tmp_seg = np.zeros_like(result[key])
-            classes = np.unique(result[key]).nonzero()[0]
-            for _, cls in enumerate(classes):
-                after = binary_erosion(self.ops(result[key], cls), structure=self.params, border_value=1 - self.tag)
-                after = (after == self.tag) * cls
-                # plt.imshow(after)
-                # plt.show()
-                tmp_seg = np.maximum(after, tmp_seg)
-            result[key] = tmp_seg
-
-    def apply_to_det(self, result):
-        for key in result['det_fields']:
-            bboxes = result[key]
-            ops = -1 if self.tag == 0 else 1
-            bboxes[:, :self.dim] = bboxes[:, :self.dim] + ops * self.kernel / 2
-            bboxes[:, self.dim: 2 * self.dim] = bboxes[:, self.dim: 2 * self.dim] - ops * self.kernel / 2
-            result[key] = clipBBoxes(self.dim, bboxes, self.image_shape)
-
-
-class ImageDilation(OperationStage):
-    """
-    support segmentation,  and classification tasks
-    support 2D and 3D images
-    """
-
-    def __init__(self, kernel, isDark=False):
-        super().__init__()
-        self.kernel = kernel
-        self.ops = operator.ne if isDark else operator.eq
-        self.tag = 0 if isDark else 1
-        # print(self.tag, self.ops)
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(kernel={})'.format(self.kernel)
-        return repr_str
-
-    @property
-    def canBackward(self):
-        return True
-
-    def _forward_params(self, result):
-        super()._forward_params(result)
-        self.params = np.expand_dims(getSphere(self.dim, self.kernel, self.kernel), 0)
-
-    def apply_to_img(self, result):
-        result['img'] = grey_dilation(result['img'], footprint=self.params)
-        # result['img_fields'].append('img_dilation')
-
-    def apply_to_seg(self, result):
-        for key in result['seg_fields']:
-            tmp_seg = np.zeros_like(result[key])
-            classes = np.unique(result[key]).nonzero()[0]
-            for _, cls in enumerate(classes):
-                after = binary_dilation(self.ops(result[key], cls), structure=self.params, border_value=1 - self.tag)
-                after = (after == self.tag) * cls
-                tmp_seg = np.maximum(after, tmp_seg)
-            result[key] = tmp_seg
-
-    def apply_to_det(self, result):
-        for key in result['det_fields']:
-            bboxes = result[key]
-            ops = -1 if self.tag == 0 else 1
-            bboxes[:, :self.dim] = bboxes[:, :self.dim] - ops * self.kernel / 2
-            bboxes[:, self.dim:: 2 * self.dim] = bboxes[:, self.dim:: 2 * self.dim] + ops * self.kernel / 2
-            result[key] = clipBBoxes(self.dim, bboxes, self.image_shape)
-
-
-class ImageOpening(OperationStage):
-    """
-    support segmentation,  and classification tasks
-    support 2D and 3D images
-    """
-
-    def __init__(self, kernel, isDark=False):
-        super().__init__()
-        self.kernel = kernel
-        self.ops = operator.ne if isDark else operator.eq
-        self.tag = 0 if isDark else 1
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(kernel={})'.format(self.kernel)
-        return repr_str
-
-    @property
-    def canBackward(self):
-        return True
-
-    def _forward_params(self, result):
-        super()._forward_params(result)
-        self.params = np.expand_dims(getSphere(self.dim, self.kernel, self.kernel), 0)
-
-    def apply_to_img(self, result):
-        result['img'] = grey_opening(result['img'], footprint=self.params)
-
-    def apply_to_seg(self, result):
-        for key in result['seg_fields']:
-            tmp_seg = np.zeros_like(result[key])
-            classes = np.unique(result[key]).nonzero()[0]
-            for _, cls in enumerate(classes):
-                after = binary_opening(self.ops(result[key], cls), structure=self.params, border_value=1 - self.tag)
-                after = (after == self.tag) * cls
-                tmp_seg = np.maximum(after, tmp_seg)
-            result[key] = tmp_seg
-
-    def apply_to_det(self, result):
-        pass
-
-
-class ImageClosing(OperationStage):
-    """
-    support segmentation,  and classification tasks
-    support 2D and 3D images
-    """
-
-    def __init__(self, kernel, isDark=False):
-        super().__init__()
-        self.kernel = kernel
-        self.ops = operator.ne if isDark else operator.eq
-        self.tag = 0 if isDark else 1
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(kernel={})'.format(self.kernel)
-        return repr_str
-
-    @property
-    def canBackward(self):
-        return True
-
-    def _forward_params(self, result):
-        super()._forward_params(result)
-        self.params = np.expand_dims(getSphere(self.dim, self.kernel, self.kernel), 0)
-
-    def apply_to_img(self, result):
-        result['img'] = grey_closing(result['img'], footprint=self.params)
-
-    def apply_to_seg(self, result):
-        for key in result['seg_fields']:
-            tmp_seg = np.zeros_like(result[key])
-            classes = np.unique(result[key]).nonzero()[0]
-            for _, cls in enumerate(classes):
-                after = binary_closing(self.ops(result[key], cls), structure=self.params, border_value=1 - self.tag)
-                after = (after == self.tag) * cls
-                tmp_seg = np.maximum(after, tmp_seg)
-            result[key] = tmp_seg
-
-    def apply_to_det(self, result):
-        pass
-
-
-# ------------- feature -------------------- #
-
-# @PIPELINES.register_module
-# class LoadGradient(Stage):
-#     def __init__(self, sigma=0.5):
-#         super().__init__()
-#         self.sigma = sigma
-#         self.pad = 1
-#
-#     def __repr__(self):
-#         repr_str = self.__class__.__name__
-#         repr_str += '(sigma={})'.format(self.sigma)
-#         return repr_str
-#
-#     def forward(self, result):
-#         img = result['img']
-#         diff = [(self.pad, self.pad)] * result['img_dim'] + [(0, 0)]
-#         slices = tuple(map(slice, [self.pad] * result['img_dim'], [-self.pad] * result['img_dim']))
-#         img = np.pad(img, diff, mode='symmetric')
-#         # print(img.shape)
-#         smoothed = ndi.gaussian_filter(img, sigma=self.sigma)  # 高斯滤波
-#         gradient = np.zeros_like(img)
-#         for i in range(result['img_dim']):
-#             gradient += ndi.sobel(smoothed, axis=i, mode='constant')
-#         result['img_gradient'] = gradient[slices]
-#         result['img_fields'].append('img_gradient')
-#         return result
-#
-#
-class LoadCannyEdge(OperationStage):
-    def __init__(self, sigma=0.5):
-        super().__init__()
-        self.sigma = sigma
-        self.pad = 1
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(sigma={})'.format(self.sigma)
-        return repr_str
-
-    def forward(self, result):
-        img = result['img']
-        diff = [(self.pad, self.pad)] * result['img_dim'] + [(0, 0)]
-        slices = tuple(map(slice, [self.pad] * result['img_dim'], [-self.pad] * result['img_dim']))
-        img = np.pad(img, diff, mode='symmetric')
-        # print(img.shape)
-        smoothed = ndi.gaussian_filter(img, sigma=self.sigma)  # 高斯滤波
-        gradient = np.zeros_like(img)
-        for i in range(result['img_dim']):
-            gradient += ndi.sobel(smoothed, axis=i, mode='constant') ** 2
-        # print(img.shape)
-        result['img_edge'] = np.sqrt(gradient)[slices]
-        result['img_fields'].append('img_edge')
-        return result
-
-
-class LoadSkeleton(OperationStage):
-    def __init__(self, dilation=0):
-        super().__init__()
-        self.dilation = dilation
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(dilation={})'.format(self.dilation)
-        return repr_str
-
-    def apply_to_seg(self, result: dict):
-        key = 'gt_seg'
-        skeleton = skeletonize(result[key][0].astype(np.uint8))
-        if self.dilation:
-            skeleton = ndi.binary_dilation(skeleton, np.ones([self.dilation + 1] * 3)).astype(np.float32)
-        result[f'{key}_skeleton'] = skeleton[None, ...]
-        result['seg_fields'].append(f'{key}_skeleton')
-        return result
-
-
-class LoadDistance(OperationStage):
-    def __init__(self):
-        super().__init__()
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__ + '()'
-        return repr_str
-
-    def apply_to_seg(self, result: dict):
-        key = 'gt_seg_skeleton'
-        distance = distance_transform_edt(result[key][0].astype(np.uint8))
-        result[f'{key}_distance'] = distance[None, ...]
-        result['seg_fields'].append(f'{key}_skeleton')
-        return result
-
-
 # ------------- intensity ---------------- #
 
-class RandomGamma(AugmentationStage):
+class RandomGamma(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
     """
 
     def __init__(self, p, gamma):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.gamma = gamma
 
     def __repr__(self):
@@ -636,7 +364,7 @@ class RandomGamma(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if isinstance(self.gamma, (list, tuple)):
             # assert len(self.gamma) == self.channels, "len(gamma) must equals to image channels"
             assert len(self.gamma) == 2 and self.gamma[0] < self.gamma[1], \
@@ -646,7 +374,8 @@ class RandomGamma(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = tuple([1 / p for p in params])
 
@@ -662,14 +391,15 @@ class RandomGamma(AugmentationStage):
         result['img'] = new_image
 
 
-class RandomBlur(AugmentationStage):
+class RandomBlur(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
     """
 
     def __init__(self, p, sigma):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.sigma = sigma
 
     def __repr__(self):
@@ -682,7 +412,7 @@ class RandomBlur(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if isinstance(self.sigma, (list, tuple)):
             # assert len(self.sigma) == self.channels, "len(sigma_std) must equals to image channels"
             # sigma = [sigma * random.random() for sigma in self.sigma]
@@ -708,12 +438,13 @@ class RandomBlur(AugmentationStage):
             result['img'] = new_image
 
 
-class RandomNoise(AugmentationStage):
+class RandomNoise(AugBase):
     def __init__(self,
                  p: float,
                  mean: Union[float, Tuple[float, float]] = 0,
                  std: Union[float, Tuple[float, float]] = (0, 0.1)):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.mean = mean
         self.std = std
 
@@ -727,13 +458,14 @@ class RandomNoise(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         noise = np.random.randn(*self.array_shape) * self.get_range(self.std) + self.get_range(self.mean)
         self.params = noise.astype(np.float32)
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = -params
 
@@ -741,13 +473,14 @@ class RandomNoise(AugmentationStage):
         result['img'] = result['img'] + self.params
 
 
-class RandomSpike(AugmentationStage):
+class RandomSpike(AugBase):
     def __init__(self,
                  p,
                  num_spikes: Union[int, Tuple[int, int]] = 1,
                  intensity: Union[float, Tuple[float, float]] = (0.5, 1)
                  ):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         if isinstance(num_spikes, int):
             num_spikes = (1, num_spikes)
         self.num_spikes = num_spikes
@@ -763,7 +496,7 @@ class RandomSpike(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         num_spikes_param = int(self.get_range(self.num_spikes))
         intensity_param = self.get_range(self.intensity)
         spikes_positions = np.random.rand(num_spikes_param, self.dim)
@@ -771,7 +504,8 @@ class RandomSpike(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             spikes_positions, intensity_param = params
             self.params = spikes_positions, - intensity_param
@@ -806,9 +540,10 @@ class RandomSpike(AugmentationStage):
         result['img'] = np.stack(transformed_result, axis=0)
 
 
-class RandomBiasField(AugmentationStage):
+class RandomBiasField(AugBase):
     def __init__(self, p, coefficients):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.coefficients = coefficients
         self.order = 1
 
@@ -822,7 +557,7 @@ class RandomBiasField(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         random_coefficients = []
         if self.dim == 3:
             for x_order in range(0, self.order + 1):
@@ -840,7 +575,8 @@ class RandomBiasField(AugmentationStage):
         result[self.key_name] = random_coefficients.tolist()
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = params
 
@@ -899,7 +635,7 @@ class RandomBiasField(AugmentationStage):
         result['img'] = np.stack(transformed_result, axis=0)
 
 
-class RandomCutout(AugmentationStage):
+class RandomCutout(AugBase):
     FUSION = {
         'mean': np.mean,
         'min': np.min,
@@ -911,13 +647,15 @@ class RandomCutout(AugmentationStage):
                  size: int,
                  with_ann=False,
                  fill='mean'):
-        super(RandomCutout, self).__init__(p)
+        super(RandomCutout, self).__init__()
+        self.p = p
         self.num_holes = num_holes
         self.size = size
         self.with_ann = with_ann
         if isinstance(fill, (int, float)):
-            RandomCutout.FUSION[str(fill)] = partial(lambda a, constant: constant, constant=fill)
-        self.fusion_fun = RandomCutout.FUSION[str(fill)]
+            self.fusion_fun = partial(lambda a, constant: constant, constant=fill)
+        else:
+            self.fusion_fun = RandomCutout.FUSION[str(fill)]
 
     def __repr__(self):
         repr_str = self.__class__.__name__
@@ -937,27 +675,32 @@ class RandomCutout(AugmentationStage):
         self.params = bboxes
         result[self.key_name] = self.params
 
+    def _backward_params(self, result):
+        self._init_params(result)
+        self.params = True
+
     def apply_to_img(self, result: dict):
         # print(result['img'].shape)
-        mask = np.zeros_like(result['img'])[[0], ...]
-        for hole in self.params:
-            slices = (slice(None),) + tuple(map(slice, hole[:self.dim][::-1], hole[-self.dim:][::-1]))
-            mean_val = self.fusion_fun(result['img'][slices])
-            result['img'][slices] = mean_val
-            mask[slices] = 1.0
-        result['cutout_mask'] = mask
-        result['seg_fields'].append('cutout_mask')
+        if self.isForwarding:
+            mask = np.zeros_like(result['img'])[[0], ...]
+            for hole in self.params:
+                slices = (slice(None),) + tuple(map(slice, hole[:self.dim][::-1], hole[-self.dim:][::-1]))
+                mean_val = self.fusion_fun(result['img'][slices])
+                result['img'][slices] = mean_val
+                mask[slices] = 1.0
+            result['cutout_mask'] = mask
+            result['seg_fields'].append('cutout_mask')
 
     def apply_to_cls(self, result: dict):
         pass
 
     def apply_to_seg(self, result: dict):
-        if self.with_ann:
-            for key in result['seg_fields']:
-                for hole in self.params:
-                    slices = (slice(None),) + tuple(map(slice, hole[:self.dim][::-1], hole[-self.dim:][::-1]))
-                    result[key][slices] = self.fill
-        return result
+        if self.isForwarding:
+            if self.with_ann:
+                for key in result['seg_fields']:
+                    for hole in self.params:
+                        slices = (slice(None),) + tuple(map(slice, hole[:self.dim][::-1], hole[-self.dim:][::-1]))
+                        result[key][slices] = 0
 
     def apply_to_det(self, result: dict):
         pass
@@ -985,34 +728,3 @@ class ForegroundCutout(RandomCutout):
             result[self.key_name] = self.params
         else:
             RandomCutout._forward_params(self, result)
-
-
-class CLAHE(OperationStage):
-    def __init__(self):
-        super(CLAHE, self).__init__()
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += '(p={})'.format(self.p)
-        return repr_str
-
-    @property
-    def canBackward(self):
-        return True
-
-    def apply_to_img(self, result: dict):
-        images = result['img']
-        min_ = np.min(images)
-        max_ = np.max(images)
-        images = (images - min_) / (max_ - min_) * 255
-        images = images.astype(np.uint8)
-
-        # create a CLAHE object (Arguments are optional).
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        images_equalized = np.empty(images.shape)
-        for i in range(images.shape[0]):
-            images_equalized[i] = clahe.apply(images[i])
-
-        images_equalized = images_equalized / 255. * (max_ - min_) + min_
-        result['img'] = images_equalized
-        return result

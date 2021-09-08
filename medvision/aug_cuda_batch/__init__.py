@@ -1,6 +1,6 @@
-from .spatial_aug import BatchCudaResize, BatchCudaRandomFlip, \
+from .aug_spatial import BatchCudaResize, BatchCudaRandomFlip, \
     BatchCudaRandomElasticDeformationFast, BatchCudaRandomAffine, \
     BatchCudaRandomScale, BatchCudaRandomRotate, BatchCudaRandomShift, \
     BatchCudaCropRandomWithAffine
-from .intensity_aug import BatchCudaRandomNoise, BatchCudaRandomBlur
+from .aug_intensity import BatchCudaRandomNoise, BatchCudaRandomBlur
 from .viewer import Display

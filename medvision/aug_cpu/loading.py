@@ -3,7 +3,7 @@ import numpy as np
 import gc
 
 from ..io.imageio import ImageIO
-from .aug_base import Stage
+from .base import AugBase
 
 
 class LoadPrepare(object):
@@ -33,7 +33,7 @@ class LoadPrepare(object):
         return [result]
         
 
-class LoadImageFromFile(Stage):
+class LoadImageFromFile(AugBase):
     def __init__(self, to_float32=True):
         super().__init__()
         self.to_float32 = to_float32
@@ -59,7 +59,7 @@ class LoadImageFromFile(Stage):
         return result
 
 
-class LoadAnnotations(Stage):
+class LoadAnnotations(AugBase):
     def __init__(self,
                  with_cls=False,
                  with_seg=False,
@@ -146,7 +146,7 @@ class LoadAnnotations(Stage):
         result['seg_fields'].append('pseudo_mask')
 
 
-class LoadCoordinate(Stage):
+class LoadCoordinate(AugBase):
     def __repr__(self):
         repr_str = self.__class__.__name__ + '()'
         return repr_str
@@ -165,7 +165,7 @@ class LoadCoordinate(Stage):
         return result
 
 
-class LoadPseudoAsSeg(Stage):
+class LoadPseudoAsSeg(AugBase):
     def __repr__(self):
         repr_str = self.__class__.__name__ + '()'
         return repr_str
@@ -177,7 +177,7 @@ class LoadPseudoAsSeg(Stage):
         return result
 
 
-class LoadSegAsImg(Stage):
+class LoadSegAsImg(AugBase):
     def __repr__(self):
         repr_str = self.__class__.__name__ + '()'
         return repr_str
@@ -188,7 +188,7 @@ class LoadSegAsImg(Stage):
         return result
 
 
-class LoadWeights(Stage):
+class LoadWeights(AugBase):
     def __repr__(self):
         repr_str = self.__class__.__name__ + '()'
         return repr_str
@@ -199,7 +199,7 @@ class LoadWeights(Stage):
         return result
 
 
-class LoadPredictions(Stage):
+class LoadPredictions(AugBase):
     def __init__(self,
                  with_cls=False,
                  with_seg=False,
@@ -241,7 +241,7 @@ class LoadPredictions(Stage):
         result['det_fields'].append('pred_det')
 
 
-class WorldVoxelConversion(Stage):
+class WorldVoxelConversion(AugBase):
     def __init__(self, reverse=False):
         super(WorldVoxelConversion, self).__init__()
         self.reverse = reverse

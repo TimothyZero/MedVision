@@ -8,7 +8,7 @@ from matplotlib.colors import Normalize
 import random
 from imageio import mimsave
 
-from .aug_base import Stage
+from .base import AugBase
 from ..visulaize import getSeg2D, getBBox2D
 
 
@@ -28,7 +28,7 @@ def ResizeWithAspectRatio(image, width=None, height=None, inter=cv2.INTER_AREA):
     return cv2.resize(image, dim, interpolation=inter)
 
 
-class Display(Stage):
+class Display(AugBase):
     def _forward(self, result, tab=1):
         if tab == 1:
             print("")
@@ -56,7 +56,7 @@ class Display(Stage):
         return self._forward(result)
 
 
-class Viewer(Stage):
+class Viewer(AugBase):
     """
     TODO: multi modality visualization
     support transposed tensor and numpy array

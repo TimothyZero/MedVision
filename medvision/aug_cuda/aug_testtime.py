@@ -1,11 +1,10 @@
 # -*- coding:utf-8 -*-
 import torch
-import gc
 import numpy as np
 
 from .base import CudaAugBase
 from .utils import cropBBoxes, padBBoxes, nmsNd_numpy
-from .cuda_fun_tools import affine_2d, affine_3d
+from ..ops.cuda_fun_tools import affine_2d, affine_3d
 
 
 class CudaPatches(CudaAugBase):

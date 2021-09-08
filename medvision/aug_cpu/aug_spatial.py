@@ -26,10 +26,10 @@ import SimpleITK as sitk
 from skimage.transform import resize
 
 from .utils import cropBBoxes, clipBBoxes, objs2bboxes, bboxes2objs
-from .aug_base import OperationStage, AugmentationStage
+from .base import AugBase
 
 
-class Resize(OperationStage):
+class Resize(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D image
@@ -38,6 +38,7 @@ class Resize(OperationStage):
 
     def __init__(self, spacing=None, scale=None, factor=None):
         super().__init__()
+        self.always = True
         self.spacing = spacing
         self.scale = scale
         self.factor = factor
@@ -53,7 +54,7 @@ class Resize(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if self.spacing is not None:
             assert len(self.spacing) == self.dim, f"not match with a {result['img_dim']}D image"
             img_spacing = np.array(result['img_spacing'])
@@ -75,7 +76,8 @@ class Resize(OperationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d (2.0, 2.0)
             # 3d (2.0, 2.0, 2.0)
@@ -114,7 +116,7 @@ class Resize(OperationStage):
                 result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] * np.hstack(self.params[::-1] * 2)
 
 
-class Pad(OperationStage):
+class Pad(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -123,6 +125,7 @@ class Pad(OperationStage):
 
     def __init__(self, size, mode='constant', val=0, center=True):
         super().__init__()
+        self.always = True
         self.size = size
         self.mode = mode
         self.val = val
@@ -138,7 +141,7 @@ class Pad(OperationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         assert len(self.size) == self.dim, "image_scale must has same rank as image_shape"
         diff = np.maximum(np.array(self.size) - np.array(self.image_shape), 0)
         if self.center:
@@ -152,7 +155,8 @@ class Pad(OperationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d [(32, 32), (32, 32)]
             # 3d [(32, 32), (32, 32), (32, 32)]
@@ -190,7 +194,7 @@ class Pad(OperationStage):
             result[key][:, :2 * self.dim] = result[key][:, :2 * self.dim] + np.array(offsets)
 
 
-class RandomFlip(AugmentationStage):
+class RandomFlip(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -198,7 +202,8 @@ class RandomFlip(AugmentationStage):
     """
 
     def __init__(self, p, axes=None):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.axes = axes
         self.flip_p = 0.5
 
@@ -212,14 +217,15 @@ class RandomFlip(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         # 2d [-1, 1]
         # 3d [1, -1, 1] , -1 = flip
         self.params = random.choices([-1, 1], weights=[self.flip_p, 1 - self.flip_p], k=self.dim)
         result[self.key_name] = tuple(self.params)
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d [-1, 1]
             # 3d [1, -1, 1]
@@ -247,7 +253,7 @@ class RandomFlip(AugmentationStage):
             result[key] = bboxes
 
 
-class RandomScale(AugmentationStage):
+class RandomScale(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D image
@@ -255,7 +261,8 @@ class RandomScale(AugmentationStage):
     """
 
     def __init__(self, p, factor):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.factor = factor
         self._tmp_params = None
 
@@ -269,7 +276,7 @@ class RandomScale(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         scales = (self.get_range(self.factor, 1),) * self.dim
         # 2d (0.5, 0.5)
         # 3d (0.5, 0.5, 0.5)
@@ -277,7 +284,8 @@ class RandomScale(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d (2.0, 2.0)
             # 3d (2.0, 2.0, 2.0)
@@ -345,7 +353,7 @@ class RandomScale(AugmentationStage):
                 result[key] = clipBBoxes(self.dim, result[key], self.image_shape)
 
 
-class RandomShift(AugmentationStage):
+class RandomShift(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -353,7 +361,8 @@ class RandomShift(AugmentationStage):
     """
 
     def __init__(self, p, shift=0.1, mode='constant'):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.shift = shift
         self.mode = mode
 
@@ -367,7 +376,7 @@ class RandomShift(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if self.dim == 3:  # only shift on axes (xy)
             random_shift_ratio = [0] + list([self.get_range(self.shift)] * (self.dim - 1))
             shift = (0,) + tuple(np.round(np.array(self.image_shape) * np.array(random_shift_ratio)))
@@ -383,7 +392,8 @@ class RandomShift(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             # 2d (-14, -35)
             # 3d (0, -14, -35)
@@ -403,7 +413,7 @@ class RandomShift(AugmentationStage):
             result[key] = clipBBoxes(self.dim, result[key], self.image_shape)
 
 
-class RandomRotate(AugmentationStage):
+class RandomRotate(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -411,7 +421,8 @@ class RandomRotate(AugmentationStage):
     """
 
     def __init__(self, p, angle, axes=None, reshape=False, order=1, mode='constant', val=0.0):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.angle = angle
         self.axes = axes
         self.reshape = reshape
@@ -430,7 +441,7 @@ class RandomRotate(AugmentationStage):
         return True
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         if self.axes is None:
             self.axes = result['img_dim'] == 3 and (3, 2) or (2, 1)
         else:
@@ -440,7 +451,8 @@ class RandomRotate(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params:
             if self.axes is None:
                 self.axes = result['img_dim'] == 3 and (3, 2) or (2, 1)
@@ -506,11 +518,12 @@ def apply_transform(x, transform_matrix, fill_mode='nearest', cval=0.,
     return x
 
 
-class RandomElasticDeformation(AugmentationStage):
+class RandomElasticDeformation(AugBase):
     def __init__(self, p,
                  num_control_points: Union[int, Tuple[int, int, int]] = 8,
                  max_displacement: float = 0.8):
-        super().__init__(p)
+        super().__init__()
+        self.p = p
         self.num_control_points = num_control_points  # zyx order
         self.max_displacement = max_displacement  # zyx order
         self.SPLINE_ORDER = 3
@@ -550,7 +563,7 @@ class RandomElasticDeformation(AugmentationStage):
             warnings.warn(message, RuntimeWarning)
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         grid_shape = self.to_tuple(self.num_control_points, self.dim)
         grid_spacing = self.image_shape / (np.array(grid_shape) - 1)
         max_displacement = self.max_displacement * grid_spacing / 2
@@ -574,7 +587,8 @@ class RandomElasticDeformation(AugmentationStage):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             self.params = - params
 
@@ -670,7 +684,7 @@ class RandomElasticDeformation(AugmentationStage):
 # -------------- Crop Patch --------------- #
 
 
-class RandomCrop(OperationStage):
+class RandomCrop(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -678,6 +692,7 @@ class RandomCrop(OperationStage):
 
     def __init__(self, patch_size=(128, 128), times=1):
         super().__init__()
+        self.always = True
         self.patch_size = patch_size
         self.times = times
 
@@ -691,7 +706,7 @@ class RandomCrop(OperationStage):
         return self.times
 
     def _forward_params(self, result):
-        super()._forward_params(result)
+        self._init_params(result)
         # print(self.key_name, np.random.get_state()[1][0])
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
@@ -875,9 +890,10 @@ class OnlyFirstDetCrop(FirstDetCrop):
             result[key] = cropBBoxes(self.dim, result[key][:1, ...], start[::-1], end[::-1], dim_iou_thr=0.8)
 
 
-class ForegroundPatches(OperationStage):
+class ForegroundPatches(AugBase):
     def __init__(self, patch_size=(128, 128), border=12, background=0):
         super().__init__()
+        self.always = True
         self.border = border
         self.patch_size = patch_size
         self.background = background
@@ -888,7 +904,7 @@ class ForegroundPatches(OperationStage):
         return repr_str
 
     def _forward_params(self, result: dict):
-        super()._forward_params(result)
+        self._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 

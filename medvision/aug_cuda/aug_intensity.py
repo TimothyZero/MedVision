@@ -1,13 +1,12 @@
 # -*- coding:utf-8 -*-
-from typing import Tuple, Union
-import random
+from typing import Union
 import numpy as np
 import torch
 from torch.nn import functional as F
 import scipy.ndimage as ndi
 
 from .base import CudaAugBase
-from .cuda_fun_tools import random_noise_2d, random_noise_3d
+from ..ops.cuda_fun_tools import random_noise_2d, random_noise_3d
 
 
 class CudaNormalize(CudaAugBase):
@@ -46,7 +45,8 @@ class CudaNormalize(CudaAugBase):
         result[self.key_name] = self.params
 
     def _backward_params(self, result):
-        params = super()._backward_params(result)
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
         if params is not None:
             # [(-1, -1, -1), (1/128, 1/128, 1/128)]
             r_mean = - torch.HalfTensor(params[0]) / torch.HalfTensor(params[1])

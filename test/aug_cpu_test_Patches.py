@@ -50,5 +50,5 @@ if __name__ == "__main__":
     os.makedirs(save_to, exist_ok=True)
     os.chdir(__dir__)
 
-    # test2d()
+    test2d()
     test3d()

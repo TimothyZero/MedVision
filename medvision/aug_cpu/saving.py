@@ -17,13 +17,13 @@ import numpy as np
 import os
 import os.path as osp
 
-from .aug_base import Stage
+from .base import AugBase
 from ..io.imageio import ImageIO
 
 
 # TODO implement with forward and backward
 
-class SaveFolder(Stage):
+class SaveFolder(AugBase):
     def __init__(self, folder):
         super().__init__()
         self.folder = folder
@@ -37,7 +37,7 @@ class SaveFolder(Stage):
         return result
 
 
-class SaveImageToFile(Stage):
+class SaveImageToFile(AugBase):
     def __init__(self, ext='same'):
         super().__init__()
         self.ext = ext if ext.startswith('.') else '.' + ext
@@ -59,7 +59,7 @@ class SaveImageToFile(Stage):
         return result
 
 
-class SaveAnnotations(Stage):
+class SaveAnnotations(AugBase):
     def __init__(self,
                  with_det=False,
                  with_cls=False,
@@ -142,7 +142,7 @@ class SaveAnnotations(Stage):
         ImageIO.saveArray(result_path + _ext, pseudo_mask, result['img_spacing'], result['img_origin'])
 
 
-class SplitPatches(Stage):
+class SplitPatches(AugBase):
     def _forward(self, result: dict):
         assert 'patches_img' in result.keys()
 

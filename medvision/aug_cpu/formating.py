@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import time
 
-from .aug_base import Stage
+from .base import AugBase
 
 
 def to_tensor(data):
@@ -49,7 +49,7 @@ def to_numpy(data):
             type(data)))
 
 
-class ToTensor(Stage):
+class ToTensor(AugBase):
     def __init__(self, keys=None):
         super().__init__()
         self.keys = keys
@@ -89,7 +89,7 @@ class ToTensor(Stage):
         return results
 
 
-class Collect(Stage):
+class Collect(AugBase):
     def __init__(self, keys):
         super().__init__()
         self.keys = keys
