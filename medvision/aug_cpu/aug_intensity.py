@@ -441,16 +441,20 @@ class RandomBlur(AugBase):
 class RandomNoise(AugBase):
     def __init__(self,
                  p: float,
-                 mean: Union[float, Tuple[float, float]] = 0,
-                 std: Union[float, Tuple[float, float]] = (0, 0.1)):
+                 method: str = 'uniform',
+                 mean: float = 0,
+                 std: float = 0.1):
         super().__init__()
+        self.supported = ['uniform', 'normal']
+        assert method in self.supported, f"method should be one of {self.supported}"
         self.p = p
+        self.method = method
         self.mean = mean
         self.std = std
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += '(p={}, mean={}, std={})'.format(self.p, self.mean, self.std)
+        repr_str += '(p={}, method={}, mean={}, std={})'.format(self.p, self.method, self.mean, self.std)
         return repr_str
 
     @property
@@ -459,7 +463,10 @@ class RandomNoise(AugBase):
 
     def _forward_params(self, result):
         self._init_params(result)
-        noise = np.random.randn(*self.array_shape) * self.get_range(self.std) + self.get_range(self.mean)
+        if self.method == 'uniform':
+            noise = ((np.random.rand(*self.array_shape) - 0.5) / 0.5) * self.std + self.mean
+        else:
+            noise = np.random.randn(*self.array_shape) * self.std + self.mean
         self.params = noise.astype(np.float32)
         result[self.key_name] = self.params
 

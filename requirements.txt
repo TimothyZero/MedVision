@@ -1,6 +1,5 @@
 numpy
-torch
-torchvision
 setuptools
 scikit-image
 SimpleITK
+opencv-python

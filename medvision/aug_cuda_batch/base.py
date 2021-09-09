@@ -36,6 +36,10 @@ class BatchCudaAugBase(object):
         self.name = self.__class__.__name__
         self.key_name = self.name + '_params'  # dict key name saving in result
 
+    def __repr__(self):
+        repr_str = self.__class__.__name__ + '()'
+        return repr_str
+
     @property
     def canBackward(self):
         return False
@@ -52,7 +56,7 @@ class BatchCudaAugBase(object):
             else:
                 val_range = [0, val_range]
         assert isinstance(val_range, (list, tuple)) and len(val_range) == 2
-        assert val_range[1] > val_range[0]
+        assert val_range[1] >= val_range[0]
         return bias + np.random.uniform(*val_range)
         # return bias + val_range
 
@@ -118,9 +122,9 @@ class BatchCudaAugBase(object):
         assert isinstance(result, dict), f'A dict is required but got a {type(result)}!'
         self._debug_ = result.get('_debug_', False)
         self._tic_ = time.time()
-        gc.collect()
-        torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats()
+        # gc.collect()
+        # torch.cuda.empty_cache()
+        # torch.cuda.reset_peak_memory_stats()
         return result
 
     def _forward(self, result: dict):
@@ -150,6 +154,8 @@ class BatchCudaAugBase(object):
 
     def _post_forward(self, result: dict):
         assert isinstance(result, dict), f'A dict is required but got a {type(result)}!'
+        # gc.collect()
+        # torch.cuda.empty_cache()
         if 'history' not in result.keys():
             result['history'] = []
         if 'time' not in result.keys():
@@ -157,12 +163,10 @@ class BatchCudaAugBase(object):
         if 'memory' not in result.keys():
             result['memory'] = []
         _start = datetime.fromtimestamp(self._tic_).strftime('%H:%M:%S.%f')
-        _memory = torch.cuda.max_memory_allocated() / 1024 /1024 / 8
+        _memory = torch.cuda.max_memory_allocated() / 1024 / 1024 / 8
         result['history'].append(self.name)
+        result['memory'].append(f"{self.name}-{_memory:.02f}MB")
         result['time'].append(f"{self.name}-{_start}-{time.time() - self._tic_:.03f}s")
-        result['memory'].append(f"{self.name}-{get_gpu()}-{_memory:.02f}MB")
-        gc.collect()
-        torch.cuda.empty_cache()
         return result
 
     def forward(self, result: dict):

@@ -212,7 +212,7 @@ class CudaRandomNoise(CudaAugBase):
                  mean: float = 0,
                  std: float = 0.1):
         super().__init__()
-        self.supported = ['normal', 'uniform']
+        self.supported = ['uniform', 'normal']
         assert method in self.supported, f"method should be one of {self.supported}"
         self.p = p
         self.method = method

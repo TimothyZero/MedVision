@@ -39,7 +39,7 @@ def test2d():
         # RandomShift(p=1.0, shift=0.2),
         CudaRandomAffine(p=1.0, scale=0.1, shift=0.1, rotate=20),
         CudaPad(size=(1660, 1660)),
-        CudaRandomElasticDeformationFast(p=1.0),
+        CudaRandomElasticDeformation(p=1.0),
         CudaRandomBlur(p=1.0, sigma=3.0),
         CudaRandomNoise(p=1.0, method='uniform', mean=0.0, std=0.2),
         CudaCollect(keys=['img', 'gt_det']),
@@ -82,7 +82,7 @@ def test3d():
         CudaResize(factor=(1.2, 1.2, 1.2)),
         CudaRandomAffine(p=1.0, scale=0.1, shift=0.1, rotate=20),
         CudaRandomBlur(p=1.0, sigma=1.0),
-        CudaRandomElasticDeformationFast(p=1.0),
+        CudaRandomElasticDeformation(p=1.0),
         # RandomNoise(p=1.0, method='uniform', mean=0.0, std=0.1),
         CudaCollect(keys=['img', 'gt_seg']),
     ]
