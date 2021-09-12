@@ -652,13 +652,13 @@ class RandomCutout(AugBase):
     def __init__(self, p,
                  num_holes: int,
                  size: int,
-                 with_ann=False,
+                 apply_to: Union[tuple, list] = (),
                  fill='mean'):
         super(RandomCutout, self).__init__()
         self.p = p
         self.num_holes = num_holes
         self.size = size
-        self.with_ann = with_ann
+        self.apply_to = apply_to
         if isinstance(fill, (int, float)):
             self.fusion_fun = partial(lambda a, constant: constant, constant=fill)
         else:
@@ -666,8 +666,8 @@ class RandomCutout(AugBase):
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += '(p={}, num_holes={}, size={}, with_ann={})' \
-            .format(self.p, self.num_holes, self.size, self.with_ann)
+        repr_str += '(p={}, num_holes={}, size={}, apply_to={})' \
+            .format(self.p, self.num_holes, self.size, self.apply_to)
         return repr_str
 
     @property
@@ -675,7 +675,7 @@ class RandomCutout(AugBase):
         return True
 
     def _forward_params(self, result):
-        super(RandomCutout, self)._forward_params(result)
+        self._init_params(result)
         ctr = np.random.randint(0, self.image_shape[::-1], size=(self.num_holes, self.dim))  # xyz
         bboxes = np.concatenate([ctr, ctr + self.size], axis=1)
         bboxes = clipBBoxes(self.dim, bboxes, self.image_shape)
@@ -698,30 +698,21 @@ class RandomCutout(AugBase):
             result['cutout_mask'] = mask
             result['seg_fields'].append('cutout_mask')
 
-    def apply_to_cls(self, result: dict):
-        pass
-
     def apply_to_seg(self, result: dict):
         if self.isForwarding:
-            if self.with_ann:
-                for key in result['seg_fields']:
+            for key in result['seg_fields']:
+                if key in self.apply_to:
                     for hole in self.params:
                         slices = (slice(None),) + tuple(map(slice, hole[:self.dim][::-1], hole[-self.dim:][::-1]))
                         result[key][slices] = 0
-
-    def apply_to_det(self, result: dict):
-        pass
 
 
 class ForegroundCutout(RandomCutout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def setLatitude(self, val):
-        self.latitude = 1.0
-
     def _forward_params(self, result):
-        super(RandomCutout, self)._forward_params(result)
+        self._init_params(result)
         if 'gt_seg_skeleton' in result.keys():
             foreground = result['gt_seg_skeleton']
         else:

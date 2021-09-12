@@ -1,6 +1,7 @@
 import os.path as osp
 import numpy as np
 import gc
+from skimage.measure import label, regionprops
 
 from ..io.imageio import ImageIO
 from .base import AugBase
@@ -272,3 +273,34 @@ class WorldVoxelConversion(AugBase):
         pass
         # if self.reverse:
         #     result['gt_det'] =
+
+
+class Instance2BBoxConversion(AugBase):
+    def __init__(self):
+        super(Instance2BBoxConversion, self).__init__()
+        self.always = True
+        self.reverse = False
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += '(reverse={})'.format(self.reverse)
+        return repr_str
+
+    def _forward(self, result: dict):
+        assert 'gt_seg' in result['seg_fields']
+        self._init_params(result)
+
+        foreground = result['gt_seg'][0].astype(int)
+        labeled, num_obj = label(foreground, return_num=True)
+        regions = regionprops(labeled, intensity_image=foreground)
+
+        gt_det = []
+        for region in regions:
+            det = [i.start for i in region.slice][::-1] + [i.stop for i in region.slice][::-1]
+            assert int(region.mean_intensity) == region.mean_intensity
+            det += [int(region.mean_intensity), 1.0]
+            gt_det.append(det)
+        result['gt_det'] = np.array(gt_det)
+
+        return result
+

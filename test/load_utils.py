@@ -15,7 +15,7 @@ def load_2d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
 
     seg_path = "../samples/det_seg.png"
     seg_filename = os.path.basename(seg_path)
-    seg = img_as_float32(io.imread(seg_path, as_gray=True))[None, ...]
+    seg = img_as_float32(io.imread(seg_path, as_gray=True))[None, ...].astype(int)
 
     img = img[:, ::downsample, ::downsample]
     seg = seg[:, ::downsample, ::downsample]
@@ -67,7 +67,7 @@ def load_2d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
 
     seg_path = "../samples/21_manual1.png"
     seg_filename = os.path.basename(seg_path)
-    seg = img_as_float32(io.imread(seg_path, as_gray=True))[None, ...]
+    seg = img_as_float32(io.imread(seg_path, as_gray=True))[None, ...].astype(int)
 
     img = img[:, ::downsample, ::downsample]
     seg = seg[:, ::downsample, ::downsample]
@@ -112,7 +112,7 @@ def load_3d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
 
     seg_path = "../samples/nodule_seg.nii.gz"
     seg_filename = os.path.basename(seg_path)
-    seg = sitk.GetArrayFromImage(sitk.ReadImage(seg_path)).astype(int)[None, ...]
+    seg = sitk.GetArrayFromImage(sitk.ReadImage(seg_path)).astype(int)[None, ...].astype(int)
 
     det = np.array([
         [185, 185, 19, 205, 205, 29, 1, 1],
@@ -166,7 +166,7 @@ def load_3d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
 
     seg_path = "../samples/luna16_iso_crop_lung.nii.gz"
     seg_filename = os.path.basename(seg_path)
-    seg = sitk.GetArrayFromImage(sitk.ReadImage(seg_path))[None, ...]
+    seg = sitk.GetArrayFromImage(sitk.ReadImage(seg_path))[None, ...].astype(int)
 
     img = img[:, ::downsample, ::downsample, ::downsample]
     seg = seg[:, ::downsample, ::downsample, ::downsample]

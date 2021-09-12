@@ -765,7 +765,7 @@ class CenterCrop(RandomCrop):
         super().__init__(*args, **kwargs)
 
     def _forward_params(self, result):
-        super(RandomCrop, self)._forward_params(result)
+        self._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
@@ -782,7 +782,7 @@ class ForegroundCrop(RandomCrop):
         self.border = border
 
     def _forward_params(self, result):
-        super(RandomCrop, self)._forward_params(result)
+        self._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
@@ -821,7 +821,7 @@ class DetCrop(RandomCrop):
         self.border = border
 
     def _forward_params(self, result):
-        super(RandomCrop, self)._forward_params(result)
+        self._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 
@@ -856,7 +856,7 @@ class FirstDetCrop(RandomCrop):
         self.border = border
 
     def _forward_params(self, result):
-        super(RandomCrop, self)._forward_params(result)
+        self._init_params(result)
         assert self.dim == len(self.patch_size)
         assert all([self.image_shape[i] >= self.patch_size[i] for i in range(self.dim)]), self.image_shape
 

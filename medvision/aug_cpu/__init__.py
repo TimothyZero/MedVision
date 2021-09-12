@@ -16,7 +16,7 @@ from .loading import LoadPrepare, \
     LoadImageFromFile, LoadAnnotations, LoadCoordinate, \
     LoadWeights, \
     LoadPseudoAsSeg, LoadSegAsImg, \
-    LoadPredictions
+    LoadPredictions, Instance2BBoxConversion
 from .saving import SaveImageToFile, SaveAnnotations, SaveFolder, SplitPatches
 from .aug_intensity import RGB2Gray, Gray2RGB, ChannelSelect,\
     AnnotationMap, \
