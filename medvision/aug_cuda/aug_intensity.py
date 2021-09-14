@@ -252,3 +252,47 @@ class CudaRandomNoise(CudaAugBase):
                                             inplace=True).squeeze(0)
         else:
             raise NotImplementedError
+
+
+class CudaRandomGamma(CudaAugBase):
+    """
+    support segmentation, detection and classification tasks
+    support 2D and 3D images
+    """
+
+    def __init__(self, p, gamma):
+        super().__init__()
+        self.p = p
+        self.gamma = gamma
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += '(p={}, gamma={})'.format(self.p, self.gamma)
+        return repr_str
+
+    @property
+    def canBackward(self):
+        return True
+
+    def _forward_params(self, result):
+        self._init_params(result)
+        gamma = tuple([self.get_range(self.gamma, 1)] * self.channels)
+        self.params = gamma
+        result[self.key_name] = self.params
+
+    def _backward_params(self, result):
+        self._init_params(result)
+        params = result.pop(self.key_name, None)
+        if params is not None:
+            self.params = tuple([1 / p for p in params])
+
+    def apply_to_img(self, result):
+        image = result['img']
+        new_image = torch.zeros_like(image).to(image.device)
+        for c in range(self.channels):
+            c_image = image[c]
+            temp_min, temp_max = torch.min(c_image) - 1e-5, torch.max(c_image) + 1e-5
+            c_image = (c_image - temp_min) / (temp_max - temp_min)
+            c_image = torch.pow(c_image, self.params[c])
+            new_image[c] = c_image * (temp_max - temp_min) + temp_min
+        result['img'] = new_image
