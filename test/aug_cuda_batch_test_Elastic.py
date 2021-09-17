@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 import time
 
-from medvision.aug_cuda_batch import BatchCudaRandomElasticDeformationFast, Display
+from medvision.aug_cuda_batch import BatchCudaRandomElasticDeformation, Display
 from medvision.visulaize import volume2tiled
 
 from load_utils import *
@@ -11,7 +11,7 @@ def test2d():
     result, img_filename, seg_filename = load_2d_image_with_seg(batch=4)
 
     order = 3
-    transform = BatchCudaRandomElasticDeformationFast(p=1.0, order=order)
+    transform = BatchCudaRandomElasticDeformation(p=1.0, order=order)
     tic = time.time()
     transformed_result = transform(result)
     toc = time.time()
@@ -33,7 +33,7 @@ def test3d():
     result, img_filename, seg_filename = load_3d_image_with_seg(batch=4)
 
     order = 3
-    transform = BatchCudaRandomElasticDeformationFast(p=1.0, order=order)
+    transform = BatchCudaRandomElasticDeformation(p=1.0, order=order)
     tic = time.time()
     transformed_result = transform(result)
     toc = time.time()

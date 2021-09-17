@@ -582,8 +582,8 @@ class CudaRandomElasticDeformation(CudaAugBase):
             offset = torch.from_numpy(offset)
             self.tmp_params = offset
         toc = time.time()
-        # if order == 0:
-        #     image = image.to(self.img_type)
+        if order == 0:
+            image = image.to(self.img_type)
         if self.dim == 2:
             image = apply_offset_2d(
                 image.unsqueeze(0),
@@ -594,8 +594,8 @@ class CudaRandomElasticDeformation(CudaAugBase):
                 image.unsqueeze(0),
                 self.tmp_params.unsqueeze(0),
                 order=order).squeeze(0)
-        # if order == 0:
-        #     image = image.int()
+        if order == 0:
+            image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
         # print("toc2 - toc", toc2 - toc)
