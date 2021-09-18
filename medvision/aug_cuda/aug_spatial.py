@@ -685,7 +685,7 @@ class CudaRandomElasticDeformation(CudaAugBase):
                     for i, idx in enumerate(cord_idx):
                         voxel = np.int64(det[list(idx)]).reshape(self.dim, -1)
                         voxel = tuple(voxel[::-1].tolist())
-                        # print(voxel)
+                        # print(2, voxel)
                         voxel_offset = self.tmp_params[(slice(None),) + voxel].cpu().numpy()[::-1, 0]
                         transformed_coords.append(det[list(idx)] - voxel_offset)
                     transformed_coords = np.stack(transformed_coords, axis=0)
@@ -1168,7 +1168,7 @@ class CudaCropRandomWithAffine(CudaAugBase):
                 bbox[selected] = [x_min, y_min, x_max, y_max]
 
                 rotated_bboxes.append(bbox)
-            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), self.image_shape)
+            valid_bboxes = clipBBoxes(self.dim, np.array(rotated_bboxes), result['img'].shape[1:])
             result[key] = torch.from_numpy(valid_bboxes).to(result[key].device)
 
 

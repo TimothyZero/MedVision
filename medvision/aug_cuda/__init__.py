@@ -6,7 +6,7 @@ from .aug_spatial import CudaRandomAffine, CudaRandomScale, CudaRandomShift, Cud
     CudaRandomFlip, CudaCropRandom, CudaCropCenter, CudaCropForeground, \
     CudaCropFirstDet, CudaCropDet, CudaCropFirstDetOnly,\
     CudaRandomElasticDeformation, CudaResize, CudaPad
-from .aug_intensity import CudaNormalize, CudaMultiNormalize, CudaRandomBlur, CudaRandomNoise
+from .aug_intensity import CudaNormalize, CudaMultiNormalize, CudaRandomBlur, CudaRandomNoise, CudaRandomGamma
 from .aug_testtime import CudaPatches
 from .formating import CudaCollect, CudaUnCollect, CudaCpuToGpu
 from .viewer import CudaDisplay, CudaViewer
