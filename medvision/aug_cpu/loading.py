@@ -276,21 +276,22 @@ class WorldVoxelConversion(AugBase):
 
 
 class Instance2BBoxConversion(AugBase):
-    def __init__(self):
+    def __init__(self, instance='gt_seg'):
         super(Instance2BBoxConversion, self).__init__()
         self.always = True
+        self.instance_key = instance
         self.reverse = False
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += '(reverse={})'.format(self.reverse)
+        repr_str += '(instance_key={}, reverse={})'.format(self.instance_key, self.reverse)
         return repr_str
 
     def _forward(self, result: dict):
-        assert 'gt_seg' in result['seg_fields']
+        assert self.instance_key in result['seg_fields'], f'{self.instance_key} not in seg_fields{result["seg_fields"]}'
         self._init_params(result)
 
-        foreground = result['gt_seg'][0].astype(int)
+        foreground = result[self.instance_key][0].astype(int)
         labeled, num_obj = label(foreground, return_num=True)
         regions = regionprops(labeled, intensity_image=foreground)
 
@@ -301,6 +302,5 @@ class Instance2BBoxConversion(AugBase):
             det += [int(region.mean_intensity), 1.0]
             gt_det.append(det)
         result['gt_det'] = np.array(gt_det)
-
         return result
 

@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 from .compose import CudaForwardCompose, CudaBackwardCompose, CudaOneOf
-from .loading import CudaLoadPrepare, CudaLoadImageFromFile, CudaLoadAnnotations, CudaAnnotationMap
+from .loading import CudaLoadPrepare, CudaLoadImageFromFile, \
+    CudaLoadAnnotations, CudaAnnotationMap, CudaInstance2BBoxConversion
 from .aug_spatial import CudaRandomAffine, CudaRandomScale, CudaRandomShift, CudaRandomRotate, \
     CudaCropRandomWithAffine, CudaCropCenterWithAffine, CudaCropFirstDetWithAffine, \
     CudaRandomFlip, CudaCropRandom, CudaCropCenter, CudaCropForeground, \

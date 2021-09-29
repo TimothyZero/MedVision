@@ -1,6 +1,7 @@
 import os.path as osp
 import numpy as np
 import gc
+from skimage.measure import label, regionprops
 
 import torch
 
@@ -206,3 +207,33 @@ class CudaAnnotationMap(CudaAugBase):
                     bboxes_labels = result[key][:, 2 * self.dim]
                     bboxes_labels = np.where(bboxes_labels == prev, curr, bboxes_labels)
                     result[key][:, 2 * self.dim] = bboxes_labels
+
+
+class CudaInstance2BBoxConversion(CudaAugBase):
+    def __init__(self, instance='gt_seg'):
+        super(CudaInstance2BBoxConversion, self).__init__()
+        self.always = True
+        self.instance_key = instance
+        self.reverse = False
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += '(instance_key={}, reverse={})'.format(self.instance_key, self.reverse)
+        return repr_str
+
+    def _forward(self, result: dict):
+        assert self.instance_key in result['seg_fields']
+        self._init_params(result)
+
+        foreground = result[self.instance_key][0].cpu().numpy().astype(int)
+        labeled, num_obj = label(foreground, return_num=True)
+        regions = regionprops(labeled, intensity_image=foreground)
+
+        gt_det = []
+        for region in regions:
+            det = [i.start for i in region.slice][::-1] + [i.stop for i in region.slice][::-1]
+            assert int(region.mean_intensity) == region.mean_intensity
+            det += [int(region.mean_intensity), 1.0]
+            gt_det.append(det)
+        result['gt_det'] = torch.from_numpy(np.array(gt_det)).cuda()
+        return result

@@ -66,11 +66,12 @@ class CudaViewer(CudaAugBase):
     support transposed tensor and numpy array
     used in dataset pipeline, not after loader
     """
-    def __init__(self, save_dir=None, p=1.0, advance=False):
+    def __init__(self, save_dir=None, p=1.0, det_field='gt_det', seg_field='gt_seg'):
         super().__init__()
         self.save_dir = save_dir
         self.p = p
-        self.advance = advance
+        self.det_field = det_field
+        self.seg_field = seg_field
         self.idx = 0
         self.dim = None
 
@@ -122,15 +123,15 @@ class CudaViewer(CudaAugBase):
             image = np.stack([image] * 3, axis=-1).squeeze()
 
             # draw bboxes if available
-            if 'gt_det' in result.keys():
-                det = self.force_numpy(result, 'gt_det')
+            if self.det_field in result.keys():
+                det = self.force_numpy(result, self.det_field)
                 bboxes = det[:, :4]
                 labels = det[:, 4]
                 scores = det[:, 5]
                 image = getBBox2D(image, bboxes, labels, scores)
 
-            if 'gt_seg' in result.keys():
-                seg = self.force_numpy(result, 'gt_seg')
+            if self.seg_field in result.keys():
+                seg = self.force_numpy(result, self.seg_field)
                 seg = seg[0]
                 image = getSeg2D(image, seg)
 
@@ -170,8 +171,8 @@ class CudaViewer(CudaAugBase):
             image = raw_image[c]
             image = np.stack([image] * 3, axis=-1).squeeze()
 
-            if 'gt_det' in result.keys():
-                det = self.force_numpy(result, 'gt_det')
+            if self.det_field in result.keys():
+                det = self.force_numpy(result, self.det_field)
                 bboxes = det[:, :6]
                 labels = det[:, 6]
                 scores = det[:, 7]
@@ -188,10 +189,10 @@ class CudaViewer(CudaAugBase):
                         im = getBBox2D(image[i, ...], tmp_bboxes, tmp_labels, tmp_scores)
                         image[i, ...] = im
 
-            if 'gt_seg' in result.keys():
+            if self.seg_field in result.keys():
                 ori_shape = list(image.shape)
                 print("Only segmentation channel 0 is showed")
-                seg = self.force_numpy(result, 'gt_seg')
+                seg = self.force_numpy(result, self.seg_field)
                 seg = seg[0]
                 seg = np.reshape(seg, (-1, seg.shape[2], 1))
                 image = np.reshape(image, (-1, image.shape[2], 3))
