@@ -23,7 +23,9 @@ def load_2d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
 
     det = np.array([
         [382, 28, 462, 108, 1, 1],
-        [32, 248, 117, 303, 2, 1]
+        [382, 128, 462, 208, 1, 1],
+        [32, 248, 117, 303, 2, 1],
+        [32, 168, 117, 223, 2, 1],
     ])
 
     print('type', img.dtype, 'max', img.max())
