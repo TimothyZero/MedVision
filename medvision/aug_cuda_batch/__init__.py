@@ -1,5 +1,5 @@
 from .aug_spatial import BatchCudaResize, BatchCudaRandomFlip, \
-    BatchCudaRandomElasticDeformationFast, BatchCudaRandomAffine, \
+    BatchCudaRandomElasticDeformation, BatchCudaRandomAffine, \
     BatchCudaRandomScale, BatchCudaRandomRotate, BatchCudaRandomShift, \
     BatchCudaCropRandomWithAffine
 from .aug_intensity import BatchCudaRandomNoise, BatchCudaRandomBlur

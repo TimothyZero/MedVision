@@ -684,7 +684,7 @@ class RandomElasticDeformation(AugBase):
 # -------------- Crop Patch --------------- #
 
 
-class RandomCrop(AugBase):
+class CropRandom(AugBase):
     """
     support segmentation, detection and classification tasks
     support 2D and 3D images
@@ -740,7 +740,7 @@ class RandomCrop(AugBase):
             result[key] = cropBBoxes(self.dim, result[key], start[::-1], end[::-1], dim_iou_thr=0.8)
 
 
-class WeightedCrop(RandomCrop):
+class CropWeighted(CropRandom):
     def _forward_params(self, result):
         assert 'pixel_weight' in result.keys(), 'pixel_weight not in result keys'
         weights = result['pixel_weight'][0]
@@ -760,7 +760,7 @@ class WeightedCrop(RandomCrop):
         result['patch_size'] = self.patch_size
 
 
-class CenterCrop(RandomCrop):
+class CropCenter(CropRandom):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -776,7 +776,7 @@ class CenterCrop(RandomCrop):
         result['patch_size'] = self.patch_size
 
 
-class ForegroundCrop(RandomCrop):
+class CropForeground(CropRandom):
     def __init__(self, border=12, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.border = border
@@ -808,14 +808,14 @@ class ForegroundCrop(RandomCrop):
                 result[self.key_name] = self.params
                 result['patch_size'] = self.patch_size
             else:
-                RandomCrop._forward_params(self, result)
+                CropRandom._forward_params(self, result)
         except Exception as e:
             raise e
             # start = tuple(map(lambda a, da: np.random.randint(0, a - da + 1), self.image_shape, self.patch_size))
             # end = tuple(map(lambda a, b: a + b, start, self.patch_size))
 
 
-class DetCrop(RandomCrop):
+class CropDet(CropRandom):
     def __init__(self, border=12, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.border = border
@@ -850,7 +850,7 @@ class DetCrop(RandomCrop):
         result['patch_size'] = self.patch_size
 
 
-class FirstDetCrop(RandomCrop):
+class CropFirstDet(CropRandom):
     def __init__(self, patch_size=(128, 128), border=12):
         super().__init__(patch_size)
         self.border = border
@@ -883,7 +883,7 @@ class FirstDetCrop(RandomCrop):
         result['patch_size'] = self.patch_size
 
 
-class OnlyFirstDetCrop(FirstDetCrop):
+class CropFirstDetOnly(CropFirstDet):
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
             start, end = self.params

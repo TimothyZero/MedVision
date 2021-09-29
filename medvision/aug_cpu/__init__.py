@@ -26,8 +26,8 @@ from .aug_intensity import RGB2Gray, Gray2RGB, ChannelSelect,\
 from .aug_spatial import Resize, Pad, \
     RandomScale, RandomRotate, RandomShift, RandomFlip, \
     RandomElasticDeformation, \
-    RandomCrop, WeightedCrop, CenterCrop, \
-    ForegroundCrop, FirstDetCrop, OnlyFirstDetCrop, \
+    CropRandom, CropWeighted, CropCenter, \
+    CropForeground, CropFirstDet, CropFirstDetOnly, \
     ForegroundPatches
 from .aug_testtime import Patches, MultiScale, MultiGamma
 from .viewer import Viewer, Display

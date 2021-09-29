@@ -199,7 +199,7 @@ class BatchCudaResize(BatchCudaAugBase):
             #     result[key][..., :2 * self.dim] = result[key][..., :2 * self.dim] * np.hstack(self.params[::-1] * 2)
 
 
-class BatchCudaRandomElasticDeformationFast(BatchCudaAugBase):
+class BatchCudaRandomElasticDeformation(BatchCudaAugBase):
     def __init__(self, p,
                  num_control_points: Union[int, Tuple[int, int, int]] = 8,
                  max_displacement: float = 0.8,
@@ -299,14 +299,14 @@ class BatchCudaRandomElasticDeformationFast(BatchCudaAugBase):
             self.tmp_params = offset
 
         toc = time.time()
-        # if order == 0:
-        #     image = image.to(self.img_type)
+        if order == 0:
+            image = image.to(self.img_type)
         if self.dim == 2:
             image = apply_offset_2d(image, self.tmp_params, order=order)
         elif self.dim == 3:
             image = apply_offset_3d(image, self.tmp_params, order=order)
-        # if order == 0:
-        #     image = image.int()
+        if order == 0:
+            image = image.int()
         toc2 = time.time()
         # print("toc - tic", toc - tic)
         # print("toc2 - toc", toc2 - toc)

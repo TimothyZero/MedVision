@@ -12,6 +12,7 @@ def load_2d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
     img = img_as_float32(io.imread(img_path, as_gray=True))[None, ...]
     if norm:
         img = (img - 0.5) / 0.5
+        img = np.clip(img, -1., 1.)
 
     seg_path = "../samples/det_seg.png"
     seg_filename = os.path.basename(seg_path)
@@ -64,6 +65,7 @@ def load_2d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
     img = img_as_float32(io.imread(img_path, as_gray=True))[None, ...]
     if norm:
         img = (img - 0.5) / 0.5
+        img = np.clip(img, -1., 1.)
 
     seg_path = "../samples/21_manual1.png"
     seg_filename = os.path.basename(seg_path)
@@ -109,6 +111,7 @@ def load_3d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
     img = sitk.GetArrayFromImage(sitk.ReadImage(img_path))[None, ...]
     if norm:
         img = (img + 400) / 700
+        img = np.clip(img, -1., 1.)
 
     seg_path = "../samples/nodule_seg.nii.gz"
     seg_filename = os.path.basename(seg_path)
@@ -163,6 +166,7 @@ def load_3d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
     img = sitk.GetArrayFromImage(sitk.ReadImage(img_path))[None, ...]
     if norm:
         img = (img + 400) / 700
+        img = np.clip(img, -1., 1.)
 
     seg_path = "../samples/luna16_iso_crop_lung.nii.gz"
     seg_filename = os.path.basename(seg_path)
