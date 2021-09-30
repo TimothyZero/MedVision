@@ -236,4 +236,5 @@ class CudaInstance2BBoxConversion(CudaAugBase):
             det += [int(region.mean_intensity), 1.0]
             gt_det.append(det)
         result['gt_det'] = torch.from_numpy(np.array(gt_det)).cuda()
+        result['det_fields'].append('gt_det')
         return result

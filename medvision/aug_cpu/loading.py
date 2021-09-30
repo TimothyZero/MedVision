@@ -302,5 +302,6 @@ class Instance2BBoxConversion(AugBase):
             det += [int(region.mean_intensity), 1.0]
             gt_det.append(det)
         result['gt_det'] = np.array(gt_det)
+        result['det_fields'].append('gt_det')
         return result
 

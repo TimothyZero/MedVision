@@ -156,6 +156,8 @@ def cropBBoxes(dim: int,
         cropped bboxes
 
     """
+    if bboxes.shape[0] == 0:
+        return bboxes
     start_coord = np.array(start_coord)
     end_coord = np.array(end_coord)
     patch_shape = (end_coord - start_coord).tolist()[::-1]  # zyx order
@@ -188,6 +190,8 @@ def padBBoxes(dim: int,
         cropped bboxes
 
     """
+    if bboxes.shape[0] == 0:
+        return bboxes
     start_coord = np.array(start_coord)
     end_coord = np.array(end_coord)
     assert start_coord.shape[-1] == end_coord.shape[-1] == dim
