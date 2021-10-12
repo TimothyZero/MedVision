@@ -923,7 +923,10 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
                         torch.cuda.empty_cache()
                     data = index, _data
                 except Exception as e:
+                    import traceback
+                    print(transform)
                     print(e)
+                    traceback.print_exc()
                     return (True, data)
 
             return (True, data)

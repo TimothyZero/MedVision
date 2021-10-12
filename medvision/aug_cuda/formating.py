@@ -96,6 +96,53 @@ class CudaCpuToGpu(CudaAugBase):
         return results
 
 
+class CudaGpuToCpu(CudaAugBase):
+    def __init__(self, keys=None):
+        super().__init__()
+        self.keys = keys
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(keys={})'.format(self.keys)
+
+    @property
+    def canBackward(self):
+        return True
+
+    def __call__(self, results, forward=True):
+        if isinstance(results, dict):
+            results = [results]
+
+        if forward:
+            return [self.forward(r) for r in results]
+        else:
+            return [self.backward(r) for r in results]
+
+    def forward(self, results):
+        _tic_ = time.time()
+        if self.keys is not None:
+            keys = self.keys
+        else:
+            keys = results.keys()
+        for key in keys:
+            results[key] = results[key].cpu()
+
+        _start = datetime.fromtimestamp(_tic_).strftime('%H:%M:%S.%f')
+        results['history'].append(self.name)
+        results['time'].append(f'{self.name}-{_start}-{time.time() - _tic_:.03f}s')
+        return results
+
+    def backward(self, results):
+        if self.keys is not None:
+            keys = self.keys
+        else:
+            keys = results.keys()
+        for key in keys:
+            results[key] = results[key].cuda()
+        last = results['history'].pop()
+        assert last == self.name
+        return results
+
+
 class CudaCollect(CudaAugBase):
     def __init__(self, keys):
         super().__init__()

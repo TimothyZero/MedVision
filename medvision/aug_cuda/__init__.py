@@ -9,6 +9,6 @@ from .aug_spatial import CudaRandomAffine, CudaRandomScale, CudaRandomShift, Cud
     CudaRandomElasticDeformation, CudaResize, CudaPad
 from .aug_intensity import CudaNormalize, CudaMultiNormalize, CudaRandomBlur, CudaRandomNoise, CudaRandomGamma
 from .aug_testtime import CudaPatches
-from .formating import CudaCollect, CudaUnCollect, CudaCpuToGpu
+from .formating import CudaCollect, CudaUnCollect, CudaCpuToGpu, CudaGpuToCpu
 from .viewer import CudaDisplay, CudaViewer
 
