@@ -92,6 +92,7 @@ class CudaCpuToGpu(CudaAugBase):
         for key in keys:
             results[key] = results[key].cpu()
         last = results['history'].pop()
+        cost = results['time'].pop()
         assert last == self.name
         return results
 
@@ -139,6 +140,7 @@ class CudaGpuToCpu(CudaAugBase):
         for key in keys:
             results[key] = results[key].cuda()
         last = results['history'].pop()
+        cost = results['time'].pop()
         assert last == self.name
         return results
 
