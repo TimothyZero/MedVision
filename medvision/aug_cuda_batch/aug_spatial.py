@@ -51,7 +51,8 @@ class BatchCudaRandomFlip(BatchCudaAugBase):
             # b, c, d, h, w
             flipped = [i + 1 for i, f in enumerate(self.params[b]) if f == -1]
             if len(flipped):
-                result['img'][b] = torch.flip(result['img'][b], flipped)
+                for key in result.get('img_fields', []):
+                    result[key][b] = torch.flip(result[key][b], flipped)
 
     def apply_to_seg(self, result):
         for b in range(self.batch):
@@ -115,43 +116,44 @@ class BatchCudaResize(BatchCudaAugBase):
             self.params = tuple(1 / np.array(params))
 
     def apply_to_img(self, result):
-        image = result['img']
-        assert image.is_cuda, 'image should be cuda'
-        assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
-        device = image.device
+        for key in result.get('img_fields', []):
+            image = result[key]
+            assert image.is_cuda, 'image should be cuda'
+            assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
+            device = image.device
 
-        if self.dim == 2:
-            cuda_fun = affine_2d
-        else:
-            cuda_fun = affine_3d
-
-        if not all([i == 1.0 for i in self.params]):
-            index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
-            center = torch.FloatTensor([i / 2 for i in list(self.image_shape[::-1])])  # dhw => xyz
-            shape = torch.FloatTensor(list(self.image_shape[::-1]))  # dhw => xyz
             if self.dim == 2:
-                angles = torch.FloatTensor([0])
+                cuda_fun = affine_2d
             else:
-                angles = torch.FloatTensor([0, 0, 0])
+                cuda_fun = affine_3d
 
-            bboxes = torch.cat([center, shape, angles]).unsqueeze(0).repeat(self.batch, 1)
-            rois = torch.cat([index, bboxes], dim=-1).to(device)
-            out_size = tuple([int(i * p) for i, p in zip(self.image_shape, self.params)])
-            spatial_scale = 1
-            aligned = True
-            order = self.order
+            if not all([i == 1.0 for i in self.params]):
+                index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
+                center = torch.FloatTensor([i / 2 for i in list(self.image_shape[::-1])])  # dhw => xyz
+                shape = torch.FloatTensor(list(self.image_shape[::-1]))  # dhw => xyz
+                if self.dim == 2:
+                    angles = torch.FloatTensor([0])
+                else:
+                    angles = torch.FloatTensor([0, 0, 0])
 
-            image = cuda_fun(
-                image,
-                rois,
-                out_size,
-                spatial_scale,
-                1,
-                aligned,
-                order
-            )
-        result['img'] = image
-        # result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
+                bboxes = torch.cat([center, shape, angles]).unsqueeze(0).repeat(self.batch, 1)
+                rois = torch.cat([index, bboxes], dim=-1).to(device)
+                out_size = tuple([int(i * p) for i, p in zip(self.image_shape, self.params)])
+                spatial_scale = 1
+                aligned = True
+                order = self.order
+
+                image = cuda_fun(
+                    image,
+                    rois,
+                    out_size,
+                    spatial_scale,
+                    1,
+                    aligned,
+                    order
+                )
+            result[key] = image
+            # result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -315,7 +317,8 @@ class BatchCudaRandomElasticDeformation(BatchCudaAugBase):
         return image
 
     def apply_to_img(self, result):
-        result['img'] = self.elastic_transform(result['img'])
+        for key in result.get('img_fields', []):
+            result[key] = self.elastic_transform(result[key])
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -407,39 +410,40 @@ class BatchCudaRandomAffine(BatchCudaAugBase):
         else:
             cuda_fun = affine_3d
 
-        image = result['img']
-        assert image.is_cuda, 'image should be cuda'
-        assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
-        device = image.device
+        for key in result.get('img_fields', []):
+            image = result[key]
+            assert image.is_cuda, 'image should be cuda'
+            assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
+            device = image.device
 
-        scales = torch.FloatTensor(self.params["scales"])
-        shifts = torch.FloatTensor(self.params["shifts"])
-        rotate = torch.FloatTensor(self.params["rotate"])
+            scales = torch.FloatTensor(self.params["scales"])
+            shifts = torch.FloatTensor(self.params["shifts"])
+            rotate = torch.FloatTensor(self.params["rotate"])
 
-        index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
-        center = torch.FloatTensor([i / 2 for i in list(self.image_shape[::-1])])  # dhw => xyz
-        shape = torch.FloatTensor(list(self.image_shape[::-1]))  # dhw => xyz
-        if self.dim == 2:
-            angles = rotate
-        else:
-            angles = torch.cat([torch.zeros_like(rotate), torch.zeros_like(rotate), rotate], dim=1)
+            index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
+            center = torch.FloatTensor([i / 2 for i in list(self.image_shape[::-1])])  # dhw => xyz
+            shape = torch.FloatTensor(list(self.image_shape[::-1]))  # dhw => xyz
+            if self.dim == 2:
+                angles = rotate
+            else:
+                angles = torch.cat([torch.zeros_like(rotate), torch.zeros_like(rotate), rotate], dim=1)
 
-        rois = torch.cat([index, center - shape * shifts / scales, shape / scales, angles], dim=-1).to(device)
-        out_size = image.shape[2:]
-        spatial_scale = 1.0
-        aligned = True
-        order = self.order
+            rois = torch.cat([index, center - shape * shifts / scales, shape / scales, angles], dim=-1).to(device)
+            out_size = image.shape[2:]
+            spatial_scale = 1.0
+            aligned = True
+            order = self.order
 
-        img = cuda_fun(
-            image,
-            rois,
-            out_size,
-            spatial_scale,
-            self.sampling_ratio,
-            aligned,
-            order
-        )
-        result['img'] = img
+            img = cuda_fun(
+                image,
+                rois,
+                out_size,
+                spatial_scale,
+                self.sampling_ratio,
+                aligned,
+                order
+            )
+            result[key] = img
 
     def apply_to_cls(self, result: dict):
         pass
@@ -673,41 +677,42 @@ class BatchCudaCropRandomWithAffine(BatchCudaAugBase):
         else:
             cuda_fun = affine_3d
 
-        image = result['img']
-        assert image.is_cuda, 'image should be cuda'
-        assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
-        device = image.device
+        for key in result.get('img_fields', []):
+            image = result[key]
+            assert image.is_cuda, 'image should be cuda'
+            assert image.ndim == self.dim + 2, 'image should be batch, channel, **dim'
+            device = image.device
 
-        start = torch.FloatTensor(self.params["start"])
-        end = torch.FloatTensor(self.params["end"])
-        scales = torch.FloatTensor(self.params["scales"])
-        shifts = torch.FloatTensor(self.params["shifts"])
-        rotate = torch.FloatTensor(self.params["rotate"])
+            start = torch.FloatTensor(self.params["start"])
+            end = torch.FloatTensor(self.params["end"])
+            scales = torch.FloatTensor(self.params["scales"])
+            shifts = torch.FloatTensor(self.params["shifts"])
+            rotate = torch.FloatTensor(self.params["rotate"])
 
-        index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
-        center = (start + end) / 2
-        shape = end - start
-        if self.dim == 2:
-            angles = rotate
-        else:
-            angles = torch.cat([torch.zeros_like(rotate), torch.zeros_like(rotate), rotate], dim=1)
+            index = torch.FloatTensor(list(range(self.batch))).unsqueeze(-1)
+            center = (start + end) / 2
+            shape = end - start
+            if self.dim == 2:
+                angles = rotate
+            else:
+                angles = torch.cat([torch.zeros_like(rotate), torch.zeros_like(rotate), rotate], dim=1)
 
-        rois = torch.cat([index, center - shape * shifts / scales, shape / scales, angles], dim=-1).to(device)
-        out_size = self.patch_size
-        spatial_scale = 1.0
-        aligned = True
-        order = self.order
+            rois = torch.cat([index, center - shape * shifts / scales, shape / scales, angles], dim=-1).to(device)
+            out_size = self.patch_size
+            spatial_scale = 1.0
+            aligned = True
+            order = self.order
 
-        img = cuda_fun(
-            image,
-            rois,
-            out_size,
-            spatial_scale,
-            self.sampling_ratio,
-            aligned,
-            order
-        )
-        result['img'] = img
+            img = cuda_fun(
+                image,
+                rois,
+                out_size,
+                spatial_scale,
+                self.sampling_ratio,
+                aligned,
+                order
+            )
+            result[key] = img
 
     def apply_to_seg(self, result: dict):
         if self.dim == 2:

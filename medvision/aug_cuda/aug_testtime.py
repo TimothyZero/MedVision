@@ -76,44 +76,45 @@ class CudaPatches(CudaAugBase):
 
     def apply_to_img(self, result):
         if self.isForwarding:
-            image = result.pop('img')
-            device = image.device
+            for key in result.get('img_fields', []):
+                image = result[key]
+                device = image.device
 
-            if self.dim == 2:
-                cuda_fun = affine_2d
-            else:
-                cuda_fun = affine_3d
+                if self.dim == 2:
+                    cuda_fun = affine_2d
+                else:
+                    cuda_fun = affine_3d
 
-            index = torch.FloatTensor([[0]] * len(self.params))
-            bboxes = torch.FloatTensor(self.params)  # xyz order, shape is [n, 2*dim]
-            center = bboxes[:, :self.dim] / 2 + bboxes[:, self.dim:] / 2
-            shape = bboxes[:, self.dim:] - bboxes[:, :self.dim]
-            if self.dim == 2:
-                angles = torch.FloatTensor([[0]] * len(self.params))
-            else:
-                angles = torch.FloatTensor([[0, 0, 0]] * len(self.params))
+                index = torch.FloatTensor([[0]] * len(self.params))
+                bboxes = torch.FloatTensor(self.params)  # xyz order, shape is [n, 2*dim]
+                center = bboxes[:, :self.dim] / 2 + bboxes[:, self.dim:] / 2
+                shape = bboxes[:, self.dim:] - bboxes[:, :self.dim]
+                if self.dim == 2:
+                    angles = torch.FloatTensor([[0]] * len(self.params))
+                else:
+                    angles = torch.FloatTensor([[0, 0, 0]] * len(self.params))
 
-            rois = torch.cat([index, center, shape, angles], dim=1).to(device)
-            out_size = self.patch_size
-            spatial_scale = 1
-            aligned = True
-            order = 1
+                rois = torch.cat([index, center, shape, angles], dim=1).to(device)
+                out_size = self.patch_size
+                spatial_scale = 1
+                aligned = True
+                order = 1
 
-            patches = cuda_fun(
-                image.unsqueeze(0),
-                rois,
-                out_size,
-                spatial_scale,
-                1,
-                aligned,
-                order
-            ).squeeze(0)
-            result['img'] = patches
+                patches = cuda_fun(
+                    image.unsqueeze(0),
+                    rois,
+                    out_size,
+                    spatial_scale,
+                    1,
+                    aligned,
+                    order
+                ).squeeze(0)
+                result[f'patches_{key}'] = patches
 
     def apply_to_seg(self, result):
         if self.isForwarding:
             for key in result.get('seg_fields', []):
-                image = result.pop(key)
+                image = result[key]
                 device = image.device
 
                 if self.dim == 2:
@@ -145,7 +146,7 @@ class CudaPatches(CudaAugBase):
                     aligned,
                     order
                 ).squeeze(0)
-                result[key] = patches
+                result[f'patches_{key}'] = patches
 
         # else:
         #     for key in result.get('seg_fields', []):
@@ -190,4 +191,4 @@ class CudaPatches(CudaAugBase):
                     k, _ = nmsNd_numpy(dets[:, [*range(self.dim * 2), -1]], 0.7 ** self.dim)
                     dets = dets[k]
                     # print(dets)
-                result[key] = dets
+                result[f'patches_{key}'] = dets

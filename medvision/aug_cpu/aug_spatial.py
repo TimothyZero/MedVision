@@ -84,21 +84,23 @@ class Resize(AugBase):
             self.params = tuple(1 / np.array(params))
 
     def apply_to_img(self, result):
-        img = result.pop('img')  # .astype(np.float32)
-        if not all([i == 1.0 for i in self.params]):
-            # img = ndi.zoom(img, (1,) + self.params, order=2)
-            new_shape = (self.channels,) + tuple(np.round(self.image_shape * np.array(self.params)).astype(np.int))
-            if self.dim == 2:
-                img = cv.resize(np.swapaxes(img, 0, -1), new_shape[1:])
-                img = np.swapaxes(img, -1, 0)
-                if img.ndim == 2:
-                    img = img[None, ...]
-            else:
-                # img = resize(img, new_shape, order=2)  # faster than zoom but may cause wrong behaviour
-                img = ndi.zoom(img, (1,) + self.params, order=2)
-        result['img'] = img  # .astype(np.float32)
-        result['img_shape'] = img.shape
-        result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
+        for key in result.get('img_fields', []):
+            img = result[key]  # .astype(np.float32)
+            if not all([i == 1.0 for i in self.params]):
+                # img = ndi.zoom(img, (1,) + self.params, order=2)
+                new_shape = (self.channels,) + tuple(np.round(self.image_shape * np.array(self.params)).astype(np.int))
+                if self.dim == 2:
+                    img = cv.resize(np.swapaxes(img, 0, -1), new_shape[1:])
+                    img = np.swapaxes(img, -1, 0)
+                    if img.ndim == 2:
+                        img = img[None, ...]
+                else:
+                    # img = resize(img, new_shape, order=2)  # faster than zoom but may cause wrong behaviour
+                    img = ndi.zoom(img, (1,) + self.params, order=2)
+            result[key] = img  # .astype(np.float32)
+            if key == 'img':
+                result['img_shape'] = img.shape
+                result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -163,17 +165,19 @@ class Pad(AugBase):
             self.params = params
 
     def apply_to_img(self, result):
-        img = result['img']
-        if self.isForwarding:
-            if not all([i == 0 for i in self.params]):
-                img = np.pad(img, ((0, 0),) + self.params, mode=self.mode, constant_values=self.val)
-        else:
-            slices = tuple([slice(lp, shape - rp) for (lp, rp), shape in zip(self.params, self.image_shape)])
-            slices = (slice(None),) + slices
-            img = img[slices]
+        for key in result.get('img_fields', []):
+            img = result[key]
+            if self.isForwarding:
+                if not all([i == 0 for i in self.params]):
+                    img = np.pad(img, ((0, 0),) + self.params, mode=self.mode, constant_values=self.val)
+            else:
+                slices = tuple([slice(lp, shape - rp) for (lp, rp), shape in zip(self.params, self.image_shape)])
+                slices = (slice(None),) + slices
+                img = img[slices]
 
-        result['img'] = img
-        result['img_shape'] = img.shape
+            result[key] = img
+            if key == 'img':
+                result['img_shape'] = img.shape
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -234,7 +238,8 @@ class RandomFlip(AugBase):
     def apply_to_img(self, result):
         slices = tuple(map(slice, [None] * self.dim, [None] * self.dim, self.params))
         slices = (slice(None),) + slices
-        result['img'] = result['img'][slices]
+        for key in result.get('img_fields', []):
+            result[key] = result[key][slices]
 
     def apply_to_seg(self, result):
         slices = tuple(map(slice, [None] * self.dim, [None] * self.dim, self.params))
@@ -292,36 +297,38 @@ class RandomScale(AugBase):
             self.params = tuple(1 / np.array(params))
 
     def apply_to_img(self, result):
-        img = result['img']
-        p = np.zeros_like(img)
-        if not all([i == 1.0 for i in self.params]):
-            new_shape = (self.channels,) + tuple(np.round(self.image_shape * np.array(self.params)))
-            img = resize(img, tuple(new_shape), order=1)
-            # print(img.shape, p.shape)
-            if self.params[0] <= 1.0:
-                diff = np.array(p.shape[1:]) - np.array(img.shape[1:])
-                start, end = diff // 2, diff // 2 - diff
-                start = [None if i == 0 else i for i in start]  # while diff = 0,0
-                end = [None if i == 0 else i for i in end]  # while diff = 0,0
-                slices = (slice(None),) + tuple(map(slice, start, end))
-                assert p[
-                           slices].shape == img.shape, f'{p[slices].shape}-{img.shape}-{p.shape}, diff={diff}, {self.params}'
-                p[slices] = img
-                self._tmp_params = (slices, True)
-            else:
-                diff = np.array(img.shape[1:]) - np.array(p.shape[1:])
-                start, end = diff // 2, diff // 2 - diff
-                start = [None if i == 0 else i for i in start]  # while diff = 0,0
-                end = [None if i == 0 else i for i in end]  # while diff = 0,0
-                slices = (slice(None),) + tuple(map(slice, start, end))
-                assert img[
-                           slices].shape == p.shape, f'{img[slices].shape}-{img.shape}-{p.shape}, diff={diff}, {self.params}'
-                p = img[slices]
-                self._tmp_params = (slices, False)
-            # print(diff, slices)
-            result['img'] = p
-            result['img_shape'] = p.shape
-            result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
+        for key in result.get('img_fields', []):
+            img = result[key]
+            p = np.zeros_like(img)
+            if not all([i == 1.0 for i in self.params]):
+                new_shape = (self.channels,) + tuple(np.round(self.image_shape * np.array(self.params)))
+                img = resize(img, tuple(new_shape), order=1)
+                # print(img.shape, p.shape)
+                if self.params[0] <= 1.0:
+                    diff = np.array(p.shape[1:]) - np.array(img.shape[1:])
+                    start, end = diff // 2, diff // 2 - diff
+                    start = [None if i == 0 else i for i in start]  # while diff = 0,0
+                    end = [None if i == 0 else i for i in end]  # while diff = 0,0
+                    slices = (slice(None),) + tuple(map(slice, start, end))
+                    assert p[
+                               slices].shape == img.shape, f'{p[slices].shape}-{img.shape}-{p.shape}, diff={diff}, {self.params}'
+                    p[slices] = img
+                    self._tmp_params = (slices, True)
+                else:
+                    diff = np.array(img.shape[1:]) - np.array(p.shape[1:])
+                    start, end = diff // 2, diff // 2 - diff
+                    start = [None if i == 0 else i for i in start]  # while diff = 0,0
+                    end = [None if i == 0 else i for i in end]  # while diff = 0,0
+                    slices = (slice(None),) + tuple(map(slice, start, end))
+                    assert img[
+                               slices].shape == p.shape, f'{img[slices].shape}-{img.shape}-{p.shape}, diff={diff}, {self.params}'
+                    p = img[slices]
+                    self._tmp_params = (slices, False)
+                # print(diff, slices)
+                result[key] = p
+                if key == 'img':
+                    result['img_shape'] = p.shape
+                    result['img_spacing'] = tuple(np.array(result['img_spacing']) / np.array(self.params))
 
     def apply_to_seg(self, result):
         slices, flag = self._tmp_params
@@ -400,7 +407,8 @@ class RandomShift(AugBase):
             self.params = tuple(- np.array(params))
 
     def apply_to_img(self, result):
-        result['img'] = ndi.shift(result['img'], self.params, order=1, mode=self.mode)
+        for key in result.get('img_fields', []):
+            result[key] = ndi.shift(result[key], self.params, order=1, mode=self.mode)
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -462,8 +470,8 @@ class RandomRotate(AugBase):
             self.params = - params
 
     def apply_to_img(self, result):
-        img = ndi.rotate(result['img'], self.params, self.axes, self.reshape, None, self.order, self.mode, self.val)
-        result['img'] = img
+        for key in result.get('img_fields', []):
+            result[key] = ndi.rotate(result[key], self.params, self.axes, self.reshape, None, self.order, self.mode, self.val)
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):
@@ -648,7 +656,8 @@ class RandomElasticDeformation(AugBase):
         return image
 
     def apply_to_img(self, result):
-        result['img'] = self.elastic_transform(result['img'])
+        for key in result.get('img_fields', []):
+            result[key] = self.elastic_transform(result[key])
 
     def apply_to_seg(self, result):
         for key in result['seg_fields']:
@@ -720,13 +729,13 @@ class CropRandom(AugBase):
         # print(self.key_name, np.random.get_state()[1][0])
 
     def apply_to_img(self, result):
-        img = result['img']
-        start, end = self.params
-        slices = (slice(None),) + tuple(map(slice, start, end))
-        cropped = img[slices]
-        result['img'] = cropped
-        result['img_shape'] = cropped.shape
-        assert cropped.shape[1:] == self.patch_size, f'crop error! cropped shape is {cropped.shape}'
+        for key in result.get('img_fields', []):
+            start, end = self.params
+            slices = (slice(None),) + tuple(map(slice, start, end))
+            result[key] = result[key][slices]
+            if key == 'img':
+                result['img_shape'] = result[key].shape
+            assert result[key].shape[1:] == self.patch_size, f'crop error! cropped shape is {result[key].shape}'
 
     def apply_to_seg(self, result):
         for key in result.get('seg_fields', []):

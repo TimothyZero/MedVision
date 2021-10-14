@@ -118,15 +118,16 @@ class MultiGamma(AugBase):
             self.params = tuple([1 / p for p in params])
 
     def apply_to_img(self, result):
-        image = result['img']
-        new_image = np.zeros_like(image)
-        for c in range(self.channels):
-            c_image = image[c]
-            temp_min, temp_max = np.min(c_image) - 1e-5, np.max(c_image) + 1e-5
-            c_image = (c_image - temp_min) / (temp_max - temp_min)
-            c_image = np.power(c_image, self.params[c])
-            new_image[c] = c_image * (temp_max - temp_min) + temp_min
-        result['img'] = new_image
+        for key in result.get('img_fields', []):
+            image = result[key]
+            new_image = np.zeros_like(image)
+            for c in range(self.channels):
+                c_image = image[c]
+                temp_min, temp_max = np.min(c_image) - 1e-5, np.max(c_image) + 1e-5
+                c_image = (c_image - temp_min) / (temp_max - temp_min)
+                c_image = np.power(c_image, self.params[c])
+                new_image[c] = c_image * (temp_max - temp_min) + temp_min
+            result[key] = new_image
 
 
 class Patches(AugBase):
@@ -195,39 +196,38 @@ class Patches(AugBase):
 
     def apply_to_img(self, result):
         if self.isForwarding:
-            tmp_image = result.pop('img')
-            pad_size = self.params[-1, self.dim:]
-            diff = np.maximum(np.array(pad_size) - np.array(self.image_shape), 0)
-            diff = tuple(zip(np.zeros_like(diff), np.array(diff)))
-            tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode=self.pad_mode)
+            for key in result.get('img_fields', []):
+                tmp_image = result[key]
+                pad_size = self.params[-1, self.dim:]
+                diff = np.maximum(np.array(pad_size) - np.array(self.image_shape), 0)
+                diff = tuple(zip(np.zeros_like(diff), np.array(diff)))
+                tmp_image = np.pad(tmp_image, ((0, 0),) + diff, mode=self.pad_mode)
 
-            patches = []
-            for anchor in self.params:
-                slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
-                slices = (slice(None),) + slices
-                patches.append(tmp_image[slices])
+                patches = []
+                for anchor in self.params:
+                    slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
+                    slices = (slice(None),) + slices
+                    patches.append(tmp_image[slices])
 
-            result['patches_img'] = np.stack(patches, axis=0)
-            del patches
-            del tmp_image
-            gc.collect()
-            # slices = tuple([slice(lp, shape - rp) for (lp, rp), shape in zip(diff, self.image_shape)])
-            # slices = (slice(None),) + slices
-            # result['img'] = result['img'][slices]
+                result[f'patches_{key}'] = np.stack(patches, axis=0)
+                del patches
+                # del tmp_image
+                gc.collect()
         else:
-            patches = result.pop('patches_img')
-            new_image = - np.ones(self.array_shape) * np.inf
-            for p, anchor in enumerate(self.params):
-                slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
-                slices = (slice(None),) + slices
-                target = new_image[slices]
-                refined_slices = tuple(slice(0, i) for i in target.shape[1:])
-                refined_slices = (slice(None),) + refined_slices
-                source = patches[p, ...][refined_slices]
-                target = np.where(target == -np.inf, source, target)
-                new_image[tuple(slices)] = np.mean(np.array([source, target]), axis=0)
+            for key in result.get('img_fields', []):
+                patches = result.pop(f'patches_{key}')
+                new_image = - np.ones(self.array_shape) * np.inf
+                for p, anchor in enumerate(self.params):
+                    slices = tuple(slice(anchor[i], anchor[i + self.dim]) for i in range(self.dim))
+                    slices = (slice(None),) + slices
+                    target = new_image[slices]
+                    refined_slices = tuple(slice(0, i) for i in target.shape[1:])
+                    refined_slices = (slice(None),) + refined_slices
+                    source = patches[p, ...][refined_slices]
+                    target = np.where(target == -np.inf, source, target)
+                    new_image[tuple(slices)] = np.mean(np.array([source, target]), axis=0)
 
-            result['img'] = new_image
+                result[key] = new_image
 
     def apply_to_seg(self, result):
         if self.isForwarding:
