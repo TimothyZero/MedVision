@@ -216,9 +216,8 @@ class CudaAugBase(object):
             else:
                 raise NotImplementedError
         else:
-            raise NotImplementedError
-            # # while using backward, it means result has already been a list of dict
-            # if isinstance(result, list):
-            #     return self.multi_backward(result)
-            # else:
-            #     return self.backward(result)
+            # while using backward, it means result has already been a list of dict
+            if isinstance(result, list):
+                return self.multi_backward(result)
+            else:
+                return self.backward(result)
