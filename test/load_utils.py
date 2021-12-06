@@ -40,6 +40,7 @@ def load_2d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
             'img_spacing': (1.0, 1.0),
             'filename':    img_filename,
             'img':         img,
+            'img_fields':  ['img'],
             'gt_det':      det,
             'det_fields':  ['gt_det'],
             'gt_seg':      seg,
@@ -53,6 +54,7 @@ def load_2d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
             'img_spacing': (1.0, 1.0),
             'filename':    img_filename,
             'img':         torch.cat([img.unsqueeze(0), ] * batch, dim=0),
+            'img_fields':  ['img'],
             'gt_det':      torch.cat([det.unsqueeze(0), ] * batch, dim=0),
             'det_fields':  ['gt_det'],
             'gt_seg':      torch.cat([seg.unsqueeze(0), ] * batch, dim=0),
@@ -89,6 +91,7 @@ def load_2d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
             'img_spacing': (1.0, 1.0),
             'filename':    img_filename,
             'img':         img,
+            'img_fields':  ['img'],
             'gt_seg':      seg,
             'seg_fields':  ['gt_seg'],
         }
@@ -99,6 +102,7 @@ def load_2d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
             'img_dim':    2,
             'filename':   img_filename,
             'img':        torch.cat([img.unsqueeze(0), ] * batch, dim=0),
+            'img_fields':  ['img'],
             'gt_seg':     torch.cat([seg.unsqueeze(0), ] * batch, dim=0),
             'seg_fields': ['gt_seg']
         }
@@ -140,6 +144,7 @@ def load_3d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
             'img_spacing': (1.0, 1.0, 1.0),
             'filename':    img_filename,
             'img':         img,
+            'img_fields':  ['img'],
             'gt_det':      det,
             'det_fields':  ['gt_det'],
             'gt_seg':      seg,
@@ -152,6 +157,7 @@ def load_3d_image_with_seg_with_det(norm=False, downsample=1, to_cuda=True, batc
             'img_dim':    3,
             'filename':   img_filename,
             'img':        torch.cat([img.unsqueeze(0), ] * batch, dim=0),
+            'img_fields':  ['img'],
             'gt_det':     torch.cat([det.unsqueeze(0), ] * batch, dim=0),
             'det_fields': ['gt_det'],
             'gt_seg':     torch.cat([seg.unsqueeze(0), ] * batch, dim=0),
@@ -190,6 +196,7 @@ def load_3d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
             'img_spacing': (1.0, 1.0, 1.0),
             'filename':    img_filename,
             'img':         img,
+            'img_fields':  ['img'],
             'gt_seg':      seg,
             'seg_fields':  ['gt_seg'],
         }
@@ -201,6 +208,7 @@ def load_3d_image_with_seg(norm=False, downsample=1, to_cuda=True, batch=None):
             'img_spacing': (1.0, 1.0, 1.0),
             'filename':    img_filename,
             'img':         torch.cat([img.unsqueeze(0), ] * batch, dim=0),
+            'img_fields':  ['img'],
             'gt_seg':      torch.cat([seg.unsqueeze(0), ] * batch, dim=0),
             'seg_fields':  ['gt_seg']
         }
