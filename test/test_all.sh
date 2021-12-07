@@ -18,6 +18,10 @@ python aug_cuda_batch_test_Flip.py
 python aug_cuda_batch_test_Noise.py
 python aug_cuda_batch_test_Resize.py
 
+python aug_compare.py
+python aug_cpu_test_instance.py
+python aug_cpu_test_Patches.py
+
 python ops_test_dcn.py
 python ops_test_Intensity.py
 python ops_test_IoU.py

@@ -19,8 +19,8 @@ def test2d():
     print(transform.params)
     print(transformed_result.keys())
 
-    volume2tiled(transformed_result['img'][:, 0].cpu().numpy(), f'{save_to}/{img_filename}.png', 1)
-    volume2tiled(transformed_result['gt_seg'][:, 0].cpu().numpy(), f'{save_to}/{seg_filename}.png', 1)
+    volume2tiled(transformed_result['patches_img'][:, 0].cpu().numpy(), f'{save_to}/{img_filename}.png', 1)
+    volume2tiled(transformed_result['patches_gt_seg'][:, 0].cpu().numpy(), f'{save_to}/{seg_filename}.png', 1)
 
     print('\n')
     CudaDisplay()(transformed_result)
@@ -38,8 +38,8 @@ def test3d():
     print(transform.params)
     print(transformed_result.keys())
 
-    volume2tiled(transformed_result['img'][0, 0].cpu().numpy(), f'{save_to}/{img_filename}.png', 10)
-    volume2tiled(transformed_result['gt_seg'][0, 0].cpu().numpy(), f'{save_to}/{seg_filename}.png', 10)
+    volume2tiled(transformed_result['patches_img'][0, 0].cpu().numpy(), f'{save_to}/{img_filename}.png', 10)
+    volume2tiled(transformed_result['patches_gt_seg'][0, 0].cpu().numpy(), f'{save_to}/{seg_filename}.png', 10)
     print('\n')
     CudaDisplay()(transformed_result)
 
