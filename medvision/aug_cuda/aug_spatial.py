@@ -758,11 +758,12 @@ class CudaRandomFlip(CudaAugBase):
     def apply_to_det(self, result):
         for key in result.get('det_fields', []):
             bboxes = np.array(result[key].cpu().numpy())
-            for i, tag in enumerate(self.params[::-1]):  # xyz
-                if tag == -1:
-                    bboxes[:, i] = self.image_shape[- i - 1] - bboxes[:, i] - 1
-                    bboxes[:, i + self.dim] = self.image_shape[- i - 1] - bboxes[:, i + self.dim] - 1
-                    bboxes[:, [i, i + self.dim]] = bboxes[:, [i + self.dim, i]]
+            if len(bboxes):
+                for i, tag in enumerate(self.params[::-1]):  # xyz
+                    if tag == -1:
+                        bboxes[:, i] = self.image_shape[- i - 1] - bboxes[:, i] - 1
+                        bboxes[:, i + self.dim] = self.image_shape[- i - 1] - bboxes[:, i + self.dim] - 1
+                        bboxes[:, [i, i + self.dim]] = bboxes[:, [i + self.dim, i]]
             result[key] = torch.from_numpy(bboxes).to(result[key].device)
 
 
