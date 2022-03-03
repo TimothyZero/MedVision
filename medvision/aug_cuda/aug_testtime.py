@@ -191,4 +191,4 @@ class CudaPatches(CudaAugBase):
                     k, _ = nmsNd_numpy(dets[:, [*range(self.dim * 2), -1]], 0.7 ** self.dim)
                     dets = dets[k]
                     # print(dets)
-                result[f'patches_{key}'] = dets
+                result[key] = torch.from_numpy(dets).cuda()
