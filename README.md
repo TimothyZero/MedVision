@@ -29,22 +29,22 @@ Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and N
 >
 > or medvision/aug_cpu for numpy version
 
-| Methods                  | Cuda | FP16 | Ops               |
-| ------------------------ | ---- | ---- | ----------------- |
-| RandomAffine             | 2/3D | yes  | RoI Align Rotated |
-| RandomScale              | 2/3D | yes  | RoI Align Rotated |
-| RandomShift              | 2/3D | yes  | RoI Align Rotated |
-| RandomRotate             | 2/3D | yes  | RoI Align Rotated |
-| RandomFlip               | 2/3D | yes  |                   |
-| CropRandom Series        | 2/3D | yes  | RoI Align Rotated |
-| RandomElasticDeformation | 2/3D | yes  | DCN               |
-| Resize                   | 2/3D | yes  | RoI Align Rotated |
-| Pad                      | 2/3D | yes  |                   |
-| Normalize +              | 2/3D | yes  |                   |
-| RandomBlur               | 2/3D | yes  | Conv              |
-| RandomNoise              | 2/3D | yes  |                   |
-| Display                  | 2/3D | yes  |                   |
-| Viewer                   | 2/3D | yes  |                   |
+| Methods                  | Cuda | FP16 | Ops               | CPU time/ms | GPU time/ms |
+| ------------------------ | ---- | ---- | ----------------- | ----------- | ----------- |
+| RandomAffine             | 2/3D | yes  | RoI Align Rotated | 5302        | 20          |
+| RandomScale              | 2/3D | yes  | RoI Align Rotated | 5109        | 19          |
+| RandomShift              | 2/3D | yes  | RoI Align Rotated | 2355        | 19          |
+| RandomRotate             | 2/3D | yes  | RoI Align Rotated | 1164        | 20          |
+| RandomFlip               | 2/3D | yes  |                   | 64          | 8           |
+| CropRandom Series        | 2/3D | yes  | RoI Align Rotated | 56          | 1           |
+| RandomElasticDeformation | 2/3D | yes  | DCN               | 12163       | 614         |
+| Resize                   | 2/3D | yes  | RoI Align Rotated | 6365        | 12          |
+| Pad                      | 2/3D | yes  |                   | 335         | 2           |
+| Normalize +              | 2/3D | yes  |                   |             |             |
+| RandomBlur               | 2/3D | yes  | Conv              | 450         | 3           |
+| RandomNoise              | 2/3D | yes  |                   | 581         | 9           |
+| Display                  | 2/3D | yes  |                   |             |             |
+| Viewer                   | 2/3D | yes  |                   |             |             |
 
 **All of these will support forward and backward (need test).**
 
