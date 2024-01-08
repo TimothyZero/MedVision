@@ -10,16 +10,16 @@ Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and N
 
 > see medvision/csrc and medvision/ops
 
-| Methods                | Torch | Cuda | Cpu  | FP16 |
-| ---------------------- | ----- | ---- | ---- | ---- |
-| RoI Align              | 2/3D  | 2/3D |      | yes  |
-| RoI Align Rotated      |       | 2/3D |      | yes  |
-| BBox overlaps          | 2/3D  | 2/3D |      | yes  |
-| NMS                    | 2/3D  | 2/3D |      | yes  |
-| soft-NMS               | 2/3D  |      | 2D   | yes  |
-| DCN v1                 |       | 2/3D |      | yes  |
-| DCN v2                 |       | 2/3D |      | yes  |
-| Deformable RoI Pooling |       | 2D   |      | yes  |
+| Methods                | Torch | Cuda | Cpu | FP16 |
+| ---------------------- | ----- | ---- | --- | ---- |
+| RoI Align              | 2/3D  | 2/3D |     | yes  |
+| RoI Align Rotated      |       | 2/3D |     | yes  |
+| BBox overlaps          | 2/3D  | 2/3D |     | yes  |
+| NMS                    | 2/3D  | 2/3D |     | yes  |
+| soft-NMS               | 2/3D  |      | 2D  | yes  |
+| DCN v1                 |       | 2/3D |     | yes  |
+| DCN v2                 |       | 2/3D |     | yes  |
+| Deformable RoI Pooling |       | 2D   |     | yes  |
 
 **Torch** : *implemented with torch functions.*
 
@@ -48,6 +48,22 @@ Computer vision operators in medical image, such as RoIAlign, DCNv1, DCNv2 and N
 
 **All of these will support forward and backward (need test).**
 
+
+### 可视化 (Visualization)
+
+| Methods                  | Cuda                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| RandomAffine             | ![RandomAffine2D](./assets/RandomAffine2D.png) <br> ![RandomAffine3D](./assets/RandomAffine3D.png)            |
+| RandomScale              | ![RandomScale3D](./assets/RandomScale3D.png)                                                                  |
+| RandomShift              | ![RandomShift3D](./assets/RandomShift3D.png)                                                                  |
+| RandomRotate             | ![](./assets/RandomRotate3D.gif)                                                                              |
+| RandomFlip               | ![RandomFlip3D](./assets/RandomFlip3D.png)                                                                    |
+| CropRandom Series        | ![CropRandomWithAffine3D](./assets/CropRandomWithAffine3D.gif)                                                |
+| RandomElasticDeformation | ![raw](./assets/RandomElasticDeformationFast3D_raw.png) <br> ![](./assets/RandomElasticDeformationFast3D.png) |
+| Resize                   | ![Resize3D](./assets/Resize3D.png)                                                                            |
+| Pad                      | ![Pad3D](./assets/Pad3D.png)                                                                                  |
+| RandomBlur               | ![RandomBlur2D](./assets/RandomBlur2D.png)  <br> ![RandomBlur3D](./assets/RandomBlur3D.png)                   |
+| RandomNoise              | ![RandomNoise3D](./assets/RandomNoise3D.png)                                                                  |
 
 ### 待完成 (TODO)
 
