@@ -66,6 +66,9 @@ def get_extensions():
             include_dirs=include_dirs,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
+            libraries=[
+                'curand',  # the CUDA random number generation library
+            ]
         )
     ]
 

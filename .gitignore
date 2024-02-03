@@ -130,3 +130,6 @@ dmypy.json
 
 .idea
 test_demo
+test/*/*.jpg
+test/*/*.gif
+test/*/*.png
