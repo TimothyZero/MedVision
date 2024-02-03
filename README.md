@@ -91,11 +91,15 @@ pip install -e .  # -e : editable, sometimes may cause cpu 100%
 
 ### 测试环境 (Tested Environment)
 
-```
-gcc    5.4,   7.5
-torch  1.6.0, 1.7.1, 1.8.1
-cuda   9.0,   10.1,  10.2
-```
+| cuda | torch  | gcc  |                      |
+| ---- | ------ | ---- | -------------------- |
+| 9.0  | 1.6.0  | 5.4  | :white_check_mark:   |
+| 10.1 | 1.7.1  | 7.5  | :white_check_mark:   |
+| 10.2 | 1.8.1  | 7.5  | :white_check_mark:   |
+| 11.1 | 1.11.0 | 7.5  | :white_check_mark:   |
+| 11.8 | 2.0.0  | 11.4 | :white_check_mark: * |
+
+`*: kaggle T4`
 
 ### 提示 (Tips)
 

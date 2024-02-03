@@ -133,3 +133,4 @@ test_demo
 test/*/*.jpg
 test/*/*.gif
 test/*/*.png
+test/*/*.nii.gz
